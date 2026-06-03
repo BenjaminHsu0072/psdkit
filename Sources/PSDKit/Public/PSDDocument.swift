@@ -57,6 +57,75 @@ public final class PSDDocument: @unchecked Sendable {
         try create(canvasSize: PSDSize(width: width, height: height), layers: layers)
     }
 
+    /// Builds a PSD from pre-rendered layer RGBA buffers (e.g. pipeline output files).
+    public static func create(
+        canvasSize: PSDSize,
+        exportedLayers: [LayerRGBAInput],
+        colorMode: ColorMode = .rgb
+    ) throws -> PSDDocument {
+        let layers = try exportedLayers.map { try makePixelLayer(from: $0) }
+        return try create(canvasSize: canvasSize, layers: layers, colorMode: colorMode)
+    }
+
+    public static func create(
+        width: Int,
+        height: Int,
+        exportedLayers: [LayerRGBAInput]
+    ) throws -> PSDDocument {
+        try create(canvasSize: PSDSize(width: width, height: height), exportedLayers: exportedLayers)
+    }
+
+    /// Pixel layer from in-memory RGBA (dimensions must match `frame`).
+    public static func makePixelLayer(
+        name: String,
+        frame: PSDRect,
+        rgba: Data,
+        isVisible: Bool = true,
+        opacity: UInt8 = 255,
+        blendMode: BlendMode = .normal
+    ) throws -> PixelLayer {
+        let pixels = try PixelBuffer(width: frame.width, height: frame.height, rgba: rgba)
+        return PixelLayer(
+            name: name,
+            frame: frame,
+            pixels: pixels,
+            isVisible: isVisible,
+            opacity: opacity,
+            blendMode: blendMode
+        )
+    }
+
+    public static func makePixelLayer(from input: LayerRGBAInput) throws -> PixelLayer {
+        try makePixelLayer(
+            name: input.name,
+            frame: input.frame,
+            rgba: input.rgba,
+            isVisible: input.isVisible,
+            opacity: input.opacity,
+            blendMode: input.blendMode
+        )
+    }
+
+    /// Reads a raw RGBA8888 file and places it at `frame` (common export pipeline output).
+    public static func makePixelLayer(
+        name: String,
+        frame: PSDRect,
+        rgbaFileURL: URL,
+        isVisible: Bool = true,
+        opacity: UInt8 = 255,
+        blendMode: BlendMode = .normal
+    ) throws -> PixelLayer {
+        let rgba = try Data(contentsOf: rgbaFileURL)
+        return try makePixelLayer(
+            name: name,
+            frame: frame,
+            rgba: rgba,
+            isVisible: isVisible,
+            opacity: opacity,
+            blendMode: blendMode
+        )
+    }
+
     /// Full-canvas solid layer for export workflows.
     public static func makeSolidLayer(
         name: String,
@@ -77,11 +146,8 @@ public final class PSDDocument: @unchecked Sendable {
                 bytes[i * 4 + 3] = alpha
             }
         }
-        return try PixelLayer(
-            name: name,
-            frame: PSDRect(left: 0, top: 0, right: canvasSize.width, bottom: canvasSize.height),
-            pixels: PixelBuffer(width: canvasSize.width, height: canvasSize.height, rgba: rgba)
-        )
+        let frame = PSDRect(left: 0, top: 0, right: canvasSize.width, bottom: canvasSize.height)
+        return try makePixelLayer(name: name, frame: frame, rgba: rgba, opacity: alpha)
     }
 
     public static func load(data: Data) throws -> PSDDocument {

@@ -74,6 +74,8 @@
 |------|------|
 | [x] `PSDDocument.create` / `makeSolidLayer` | CreateDocumentTests |
 | [x] 空画布导出 | 仅复合图 |
+| [x] `LayerRGBAInput` / `makePixelLayer` / `rgbaFileURL` | 管线 RGBA → PSD |
+| [x] Viewer Export… | 新建文档可另存为 |
 
 ---
 

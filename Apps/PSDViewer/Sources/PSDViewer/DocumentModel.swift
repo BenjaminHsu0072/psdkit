@@ -71,17 +71,43 @@ final class DocumentModel: ObservableObject {
     }
 
     func saveDocument() {
-        guard let document, let fileURL else { return }
+        guard let document else { return }
+        if let fileURL {
+            do {
+                try document.save(to: fileURL)
+                statusMessage = "Saved \(fileURL.lastPathComponent)"
+                errorMessage = nil
+            } catch let error as PSDError {
+                errorMessage = error.userMessage
+                statusMessage = "Save failed."
+            } catch {
+                errorMessage = error.localizedDescription
+                statusMessage = "Save failed."
+            }
+        } else {
+            saveDocumentAs()
+        }
+    }
+
+    func saveDocumentAs() {
+        guard let document else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.data]
+        panel.nameFieldStringValue = "Untitled.psd"
+        panel.title = "Export PSD"
+        panel.message = "Save 8-bit RGB PSD"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
-            try document.save(to: fileURL)
-            statusMessage = "Saved \(fileURL.lastPathComponent)"
+            try document.save(to: url)
+            fileURL = url
+            statusMessage = "Exported \(url.lastPathComponent)"
             errorMessage = nil
         } catch let error as PSDError {
             errorMessage = error.userMessage
-            statusMessage = "Save failed."
+            statusMessage = "Export failed."
         } catch {
             errorMessage = error.localizedDescription
-            statusMessage = "Save failed."
+            statusMessage = "Export failed."
         }
     }
 

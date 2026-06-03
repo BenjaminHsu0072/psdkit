@@ -79,4 +79,52 @@ final class CreateDocumentTests: XCTestCase {
         XCTAssertEqual(loaded.root.children.count, 1)
         XCTAssertEqual((loaded.root.children[0] as? PixelLayer)?.name, "Added")
     }
+
+    func testMakePixelLayerFromRGBAFile() throws {
+        var rgba = Data(count: 16 * 4)
+        for i in 0 ..< 16 {
+            rgba[i * 4] = 10
+            rgba[i * 4 + 1] = 20
+            rgba[i * 4 + 2] = 30
+            rgba[i * 4 + 3] = 255
+        }
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("layer.rgba")
+        try rgba.write(to: file)
+
+        let frame = PSDRect(left: 1, top: 1, right: 3, bottom: 3)
+        let layer = try PSDDocument.makePixelLayer(name: "FromFile", frame: frame, rgbaFileURL: file)
+        XCTAssertEqual(layer.frame, frame)
+        XCTAssertEqual(layer.pixels.width, 2)
+        XCTAssertEqual(layer.pixels.rgba[0], 10)
+
+        try? FileManager.default.removeItem(at: file)
+    }
+
+    func testCreateFromExportedLayers() throws {
+        let size = PSDSize(width: 8, height: 8)
+        let back = try PSDDocument.makeSolidLayer(
+            name: "Background",
+            canvasSize: size,
+            red: 40,
+            green: 40,
+            blue: 40
+        )
+        var frontBytes = Data(repeating: 0, count: 4 * 4)
+        for i in 0 ..< 4 {
+            frontBytes[i * 4] = 200
+            frontBytes[i * 4 + 3] = 255
+        }
+        let inputs: [LayerRGBAInput] = [
+            LayerRGBAInput(name: back.name, frame: back.frame, rgba: back.pixels.rgba),
+            LayerRGBAInput(name: "Sprite", left: 0, top: 0, width: 2, height: 2, rgba: frontBytes),
+        ]
+        let doc = try PSDDocument.create(canvasSize: size, exportedLayers: inputs)
+        let data = try doc.data()
+        let loaded = try PSDDocument.load(data: data)
+        XCTAssertEqual(loaded.root.children.count, 2)
+        XCTAssertEqual(loaded.root.children[1].name, "Sprite")
+        let sprite = loaded.root.children[1] as! PixelLayer
+        XCTAssertEqual(sprite.frame.width, 2)
+        XCTAssertEqual(sprite.pixels.rgba[0], 200)
+    }
 }

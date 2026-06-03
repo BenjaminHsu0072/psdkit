@@ -8,10 +8,11 @@ Swift 库：读写 **8-bit RGB(A) 位图图层** PSD 文件（首版）。
 |------|------|
 | 读路径 | `PSDDocument.load`、RLE/RAW 通道、多层 RGBA |
 | 写路径 | 默认 **passthrough**；`writeMode: .semantic` 重建图层与复合图 |
+| 从 0 新建 | `PSDDocument.create`、`makePixelLayer`、`LayerRGBAInput` |
 | 图层编辑 | `appendPixelLayer` / `removePixelLayer`、`markContentModified()` |
 | Unicode 名 | `luni` 解析与写入 |
-| 测试 | 23 项 golden / TDD（见 [docs/06-testing.md](./docs/06-testing.md)） |
-| Viewer | macOS [`Apps/PSDViewer`](./Apps/PSDViewer/) |
+| 测试 | golden / TDD（`swift test`，见 [docs/06-testing.md](./docs/06-testing.md)） |
+| Viewer | macOS [`Apps/PSDViewer`](./Apps/PSDViewer/) — New / Open / Save / Export |
 
 ## 快速开始
 
@@ -24,7 +25,25 @@ let layer = try PSDDocument.makeSolidLayer(name: "Export", canvasSize: size, red
 var doc = try PSDDocument.create(canvasSize: size, layers: [layer])
 try doc.save(to: URL(fileURLWithPath: "out.psd"))
 
-// 或打开已有文件
+// 由管线生成的图层 RGBA 文件组装 PSD
+let spriteURL = URL(fileURLWithPath: "layers/sprite.rgba")  // 原始 RGBA8888
+let sprite = try PSDDocument.makePixelLayer(
+    name: "Sprite",
+    frame: PSDRect(left: 10, top: 20, right: 74, bottom: 84),
+    rgbaFileURL: spriteURL
+)
+let bg = try PSDDocument.makeSolidLayer(name: "BG", canvasSize: size, red: 255, green: 255, blue: 255)
+doc = try PSDDocument.create(canvasSize: size, layers: [bg, sprite])
+
+// 或一次性传入内存中的图层缓冲
+let exported: [LayerRGBAInput] = [
+    LayerRGBAInput(name: "BG", left: 0, top: 0, width: 256, height: 256, rgba: bgData),
+    LayerRGBAInput(name: "FG", left: 0, top: 0, width: 64, height: 64, rgba: fgData),
+]
+doc = try PSDDocument.create(width: 256, height: 256, exportedLayers: exported)
+try doc.save(to: URL(fileURLWithPath: "composed.psd"))
+
+// 打开已有文件
 let doc = try PSDDocument.load(url: URL(fileURLWithPath: "sample.psd"))
 for case let layer as PixelLayer in doc.root.children {
     print(layer.name, layer.frame, layer.pixels.rgba.count)
@@ -55,6 +74,8 @@ python3 Scripts/generate_test_fixtures.py
 ```bash
 cd Apps/PSDViewer && swift run PSDViewer
 ```
+
+新建文档后使用 **Export…** 或 **Save**（无路径时自动弹出保存面板）导出 PSD。
 
 ## 文档
 

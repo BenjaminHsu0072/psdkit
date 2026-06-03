@@ -16,6 +16,8 @@ struct ContentView: View {
                 Button("Open") { model.presentOpenPanel() }
                 Button("Save") { model.saveDocument() }
                     .disabled(model.document == nil)
+                Button("Export…") { model.saveDocumentAs() }
+                    .disabled(model.document == nil)
                 Divider()
                 Button {
                     model.addPixelLayer()
