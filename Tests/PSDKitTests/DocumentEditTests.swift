@@ -56,6 +56,48 @@ final class DocumentEditTests: XCTestCase {
         try? FileManager.default.removeItem(at: temp)
     }
 
+    func testVisibilityRoundTrip() throws {
+        let url = try fixtureURL("layer-hidden.psd")
+        let doc = try PSDDocument.load(url: url)
+        guard let visible = doc.root.children.first as? PixelLayer,
+              let hidden = doc.root.children.last as? PixelLayer
+        else {
+            XCTFail("expected two pixel layers")
+            return
+        }
+        XCTAssertTrue(visible.isVisible)
+        XCTAssertFalse(hidden.isVisible)
+
+        visible.isVisible = false
+        hidden.isVisible = true
+        doc.markContentModified()
+
+        let temp = FileManager.default.temporaryDirectory.appendingPathComponent("visibility-edit.psd")
+        try doc.save(to: temp)
+        let reloaded = try PSDDocument.load(url: temp)
+        let rVisible = reloaded.root.children.first as? PixelLayer
+        let rHidden = reloaded.root.children.last as? PixelLayer
+        XCTAssertEqual(rVisible?.isVisible, false)
+        XCTAssertEqual(rHidden?.isVisible, true)
+        try? FileManager.default.removeItem(at: temp)
+    }
+
+    func testRenameLayerRoundTrip() throws {
+        let url = try fixtureURL("two-layers.psd")
+        let doc = try PSDDocument.load(url: url)
+        guard let layer = doc.root.children.first as? PixelLayer else {
+            XCTFail("missing layer")
+            return
+        }
+        layer.name = "RenamedBottom"
+        doc.markContentModified()
+        let temp = FileManager.default.temporaryDirectory.appendingPathComponent("rename-edit.psd")
+        try doc.save(to: temp)
+        let reloaded = try PSDDocument.load(url: temp)
+        XCTAssertEqual(reloaded.root.children.first?.name, "RenamedBottom")
+        try? FileManager.default.removeItem(at: temp)
+    }
+
     func testUnicodeLayerNameRoundTrip() throws {
         let url = try fixtureURL("layer-name-unicode.psd")
         let doc = try PSDDocument.load(url: url)
