@@ -5,7 +5,7 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
-            layerList
+            sidebar
         } detail: {
             previewPane
         }
@@ -19,6 +19,12 @@ struct ContentView: View {
                 Button("Export…") { model.saveDocumentAs() }
                     .disabled(model.document == nil)
                 Divider()
+                Button {
+                    model.importPNGAsLayer()
+                } label: {
+                    Label("Import PNG", systemImage: "photo.on.rectangle.angled")
+                }
+                .disabled(model.document == nil)
                 Button {
                     model.addPixelLayer()
                 } label: {
@@ -35,35 +41,59 @@ struct ContentView: View {
         }
     }
 
+    private var sidebar: some View {
+        VStack(spacing: 0) {
+            layerList
+            Divider()
+            layerInspector
+        }
+        .frame(minWidth: 240)
+    }
+
     private var layerList: some View {
         List(selection: $model.selectedLayerIndex) {
-            if model.layerNames.isEmpty {
+            if model.layerItems.isEmpty {
                 Text("No document")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(Array(model.layerNames.enumerated()), id: \.offset) { index, name in
+                ForEach(model.layerItems) { item in
                     HStack {
                         Button {
-                            model.toggleLayerVisibility(at: index)
+                            model.toggleLayerVisibility(at: item.id)
                         } label: {
-                            Image(systemName: visibilityIcon(at: index))
+                            Image(systemName: item.isVisible ? "eye" : "eye.slash")
                         }
                         .buttonStyle(.borderless)
-                        Text(name)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.name)
+                                .lineLimit(1)
+                            Text("Opacity \(Int(item.opacity))")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                    .tag(index)
+                    .tag(item.id)
                 }
             }
         }
         .listStyle(.sidebar)
-        .frame(minWidth: 200)
+        .frame(minHeight: 160)
+        .id(model.documentRevision)
     }
 
-    private func visibilityIcon(at index: Int) -> String {
-        guard let document = model.document, index < document.root.children.count else {
-            return "eye.slash"
+    private var layerInspector: some View {
+        Group {
+            if let index = model.selectedLayerIndex {
+                LayerInspectorView(layerIndex: index)
+            } else {
+                Text("Select a layer to edit name and opacity.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
         }
-        return document.root.children[index].isVisible ? "eye" : "eye.slash"
+        .frame(minHeight: 180, maxHeight: 280)
     }
 
     private var previewPane: some View {

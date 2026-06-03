@@ -100,7 +100,7 @@
 |------|------|
 | [x] 打开/保存 | `Apps/PSDViewer` |
 | [x] 图层列表 + 合成预览 | CompositeBuilder |
-| [~] 增删改 UI | Viewer：Add/Remove 图层（macOS） |
+| [x] 增删改 UI | 增删层、改名、不透明度、Import PNG |
 | [x] 错误提示 | `PSDError.userMessage` + Viewer |
 
 ---

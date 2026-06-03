@@ -3,6 +3,13 @@ import Foundation
 import PSDKit
 import SwiftUI
 
+struct LayerListItem: Identifiable, Equatable {
+    let id: Int
+    let name: String
+    let isVisible: Bool
+    let opacity: UInt8
+}
+
 @MainActor
 final class DocumentModel: ObservableObject {
     @Published private(set) var document: PSDDocument?
@@ -11,10 +18,26 @@ final class DocumentModel: ObservableObject {
     @Published private(set) var statusMessage = "Open a PSD file to begin."
     @Published private(set) var errorMessage: String?
     @Published var selectedLayerIndex: Int?
+    /// Bumped when layer metadata changes so SwiftUI refreshes the sidebar.
+    @Published private(set) var documentRevision = 0
 
-    var layerNames: [String] {
+    var layerItems: [LayerListItem] {
         guard let document else { return [] }
-        return document.root.children.map(\.name)
+        return document.root.children.enumerated().map { index, layer in
+            LayerListItem(
+                id: index,
+                name: layer.name,
+                isVisible: layer.isVisible,
+                opacity: layer.opacity
+            )
+        }
+    }
+
+    var selectedPixelLayer: PixelLayer? {
+        guard let document, let index = selectedLayerIndex,
+              index >= 0, index < document.root.children.count
+        else { return nil }
+        return document.root.children[index] as? PixelLayer
     }
 
     func newDocument(width: Int = 256, height: Int = 256) {
@@ -25,6 +48,7 @@ final class DocumentModel: ObservableObject {
             selectedLayerIndex = nil
             errorMessage = nil
             statusMessage = "New document \(width)×\(height)"
+            bumpDocument()
             refreshPreview()
         } catch let error as PSDError {
             errorMessage = error.userMessage
@@ -52,6 +76,7 @@ final class DocumentModel: ObservableObject {
             selectedLayerIndex = doc.root.children.isEmpty ? nil : 0
             errorMessage = nil
             statusMessage = "Loaded \(url.lastPathComponent) — \(doc.root.children.count) layer(s)"
+            bumpDocument()
             refreshPreview()
         } catch let error as PSDError {
             document = nil
@@ -131,9 +156,58 @@ final class DocumentModel: ObservableObject {
         guard let document, index >= 0, index < document.root.children.count else { return }
         let layer = document.root.children[index]
         layer.isVisible.toggle()
-        document.markContentModified()
-        refreshPreview()
+        markDirty()
         statusMessage = "\(layer.name) visibility: \(layer.isVisible ? "on" : "off")"
+    }
+
+    func renameLayer(at index: Int, to name: String) {
+        guard let document, index >= 0, index < document.root.children.count else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let layer = document.root.children[index]
+        layer.name = trimmed
+        markDirty()
+        statusMessage = "Renamed layer to \"\(trimmed)\""
+    }
+
+    func setLayerOpacity(at index: Int, opacity: UInt8) {
+        guard let document, index >= 0, index < document.root.children.count else { return }
+        let layer = document.root.children[index]
+        layer.opacity = opacity
+        markDirty()
+        statusMessage = "\(layer.name) opacity: \(opacity)"
+    }
+
+    func importPNGAsLayer() {
+        guard let document else { return }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.png]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.title = "Import PNG"
+        panel.message = "Adds image as a new pixel layer at top-left"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let (rgba, width, height) = try ImageImport.loadRGBA(from: url)
+            let baseName = url.deletingPathExtension().lastPathComponent
+            let layer = try PixelLayer(
+                name: baseName.isEmpty ? "Imported" : baseName,
+                frame: PSDRect(left: 0, top: 0, right: width, bottom: height),
+                pixels: PixelBuffer(width: width, height: height, rgba: rgba)
+            )
+            try document.appendPixelLayer(layer)
+            selectedLayerIndex = document.root.children.count - 1
+            markDirty()
+            statusMessage = "Imported \(url.lastPathComponent) (\(width)×\(height))"
+            errorMessage = nil
+        } catch let error as PSDError {
+            errorMessage = error.userMessage
+            statusMessage = "Import failed."
+        } catch {
+            errorMessage = error.localizedDescription
+            statusMessage = "Import failed."
+        }
     }
 
     func addPixelLayer() {
@@ -155,7 +229,7 @@ final class DocumentModel: ObservableObject {
             )
             try document.appendPixelLayer(layer)
             selectedLayerIndex = document.root.children.count - 1
-            refreshPreview()
+            markDirty()
             statusMessage = "Added \(layer.name)"
             errorMessage = nil
         } catch let error as PSDError {
@@ -179,7 +253,7 @@ final class DocumentModel: ObservableObject {
             selectedLayerIndex = document.root.children.isEmpty
                 ? nil
                 : min(index, document.root.children.count - 1)
-            refreshPreview()
+            markDirty()
             statusMessage = "Removed \(name)"
             errorMessage = nil
         } catch let error as PSDError {
@@ -187,5 +261,15 @@ final class DocumentModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func markDirty() {
+        document?.markContentModified()
+        bumpDocument()
+        refreshPreview()
+    }
+
+    private func bumpDocument() {
+        documentRevision += 1
     }
 }

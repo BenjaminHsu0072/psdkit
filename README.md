@@ -75,7 +75,7 @@ python3 Scripts/generate_test_fixtures.py
 cd Apps/PSDViewer && swift run PSDViewer
 ```
 
-新建文档后使用 **Export…** 或 **Save**（无路径时自动弹出保存面板）导出 PSD。
+新建文档后使用 **Export…** 或 **Save**（无路径时自动弹出保存面板）导出 PSD。侧边栏可编辑图层名称与不透明度，**Import PNG** 将图片导入为新图层。
 
 ## 文档
 
