@@ -21,6 +21,7 @@ let package = Package(
             path: "Tests/PSDKitTests",
             resources: [
                 .copy("Fixtures"),
+                .copy("Golden"),
             ]
         ),
     ]

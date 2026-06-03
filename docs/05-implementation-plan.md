@@ -7,6 +7,14 @@
 - [x] 添加 `Package.swift` 骨架与空 target
 - [x] 添加最小 Fixtures（`Scripts/generate_fixtures.py`）
 
+
+## 阶段 0.5：测试基础设施（TDD）
+
+- [x] `Scripts/generate_test_fixtures.py` — psd-tools 生成 PSD + manifest + rgba golden
+- [x] `GoldenReadTests` / `GoldenWriteTests` / `RejectionTests` / `PackBitsGoldenTests`
+- [x] 覆盖矩阵 13 正向 + 4 负向（见 [06-testing.md](./06-testing.md)）
+- [ ] 增加 `semantic` 写往返 fixture（待写编码完成后）
+
 ---
 
 ## 阶段 1：二进制基础（进行中）

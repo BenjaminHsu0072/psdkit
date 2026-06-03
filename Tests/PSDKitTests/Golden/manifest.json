@@ -1,0 +1,724 @@
+{
+  "version": 1,
+  "generated_at": "2026-06-03T04:04:00.062292+00:00",
+  "generator": "Scripts/generate_test_fixtures.py",
+  "reference": "psd-tools",
+  "fixtures": [
+    {
+      "id": "single-rle-8x8",
+      "file": "single-rle-8x8.psd",
+      "description": "Single full-canvas layer, RLE compression",
+      "tags": [
+        "single",
+        "rle",
+        "8x8"
+      ],
+      "v1_read_supported": true,
+      "v1_write_roundtrip": "passthrough",
+      "file_sha256": "e16cfbafbd85282e2069f085f22719a99c659d7aa040ef4054a3854e453452e7",
+      "file_size": 650,
+      "header": {
+        "width": 8,
+        "height": 8,
+        "channels": 3,
+        "depth": 8,
+        "version": 1,
+        "color_mode": 3
+      },
+      "layer_count": 1,
+      "layers": [
+        {
+          "index": 0,
+          "name": "SolidRed",
+          "kind": "pixel",
+          "bbox": {
+            "left": 0,
+            "top": 0,
+            "right": 8,
+            "bottom": 8
+          },
+          "width": 8,
+          "height": 8,
+          "opacity": 255,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "single-rle-8x8-layer0.rgba",
+          "pixel_byte_count": 256,
+          "skip_name_check": false
+        }
+      ],
+      "composite_sha256": "0d1b5807a072040df4aab5871837e4296ddafc56a83226a1d098e6e86961c001"
+    },
+    {
+      "id": "single-raw-8x8",
+      "file": "single-raw-8x8.psd",
+      "description": "Single full-canvas layer, RAW compression",
+      "tags": [
+        "single",
+        "raw",
+        "8x8"
+      ],
+      "v1_read_supported": true,
+      "v1_write_roundtrip": "passthrough",
+      "file_sha256": "566bc144e0687747672d8d24a7bd7cbd1ac50792d2536f181e249cae9d8dcfcc",
+      "file_size": 810,
+      "header": {
+        "width": 8,
+        "height": 8,
+        "channels": 3,
+        "depth": 8,
+        "version": 1,
+        "color_mode": 3
+      },
+      "layer_count": 1,
+      "layers": [
+        {
+          "index": 0,
+          "name": "SolidBlue",
+          "kind": "pixel",
+          "bbox": {
+            "left": 0,
+            "top": 0,
+            "right": 8,
+            "bottom": 8
+          },
+          "width": 8,
+          "height": 8,
+          "opacity": 255,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "single-raw-8x8-layer0.rgba",
+          "pixel_byte_count": 256,
+          "skip_name_check": false
+        }
+      ],
+      "composite_sha256": "c262b5c549abc0f3f8a81ef1672eda4d07f475f7c97cc37afab49b47d79ba935"
+    },
+    {
+      "id": "single-rgba-rle-16x16",
+      "file": "single-rgba-rle-16x16.psd",
+      "description": "Single layer with alpha channel, RLE",
+      "tags": [
+        "single",
+        "rgba",
+        "rle",
+        "16x16"
+      ],
+      "v1_read_supported": true,
+      "v1_write_roundtrip": "passthrough",
+      "file_sha256": "015eba2f2e017ab6589fdd8ed351abaa67760e80cb620b7dfc78475ab87d75f5",
+      "file_size": 1382,
+      "header": {
+        "width": 16,
+        "height": 16,
+        "channels": 3,
+        "depth": 8,
+        "version": 1,
+        "color_mode": 3
+      },
+      "layer_count": 1,
+      "layers": [
+        {
+          "index": 0,
+          "name": "SemiRed",
+          "kind": "pixel",
+          "bbox": {
+            "left": 0,
+            "top": 0,
+            "right": 16,
+            "bottom": 16
+          },
+          "width": 16,
+          "height": 16,
+          "opacity": 255,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "single-rgba-rle-16x16-layer0.rgba",
+          "pixel_byte_count": 1024,
+          "skip_name_check": false
+        }
+      ],
+      "composite_sha256": "71205eb7a329a3ead670c77eee185c0fbeb612f7a2b3d6aadbe2af4f9276b60d"
+    },
+    {
+      "id": "canvas-1x1",
+      "file": "canvas-1x1.psd",
+      "description": "Minimum canvas size",
+      "tags": [
+        "edge",
+        "1x1"
+      ],
+      "v1_read_supported": true,
+      "v1_write_roundtrip": "passthrough",
+      "file_sha256": "05b5a3e96138605236625859878cf5e5dd51bc087c1e8d6a1fa5b2c175136ba1",
+      "file_size": 313,
+      "header": {
+        "width": 1,
+        "height": 1,
+        "channels": 3,
+        "depth": 8,
+        "version": 1,
+        "color_mode": 3
+      },
+      "layer_count": 1,
+      "layers": [
+        {
+          "index": 0,
+          "name": "Px",
+          "kind": "pixel",
+          "bbox": {
+            "left": 0,
+            "top": 0,
+            "right": 1,
+            "bottom": 1
+          },
+          "width": 1,
+          "height": 1,
+          "opacity": 255,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "canvas-1x1-layer0.rgba",
+          "pixel_byte_count": 4,
+          "skip_name_check": false
+        }
+      ],
+      "composite_sha256": "6667fdfae959828a37fa8cabaa6ec7a5b90573a19fad10a9513eb2de23d00caa"
+    },
+    {
+      "id": "canvas-64x64",
+      "file": "canvas-64x64.psd",
+      "description": "Larger uniform layer (RLE friendly)",
+      "tags": [
+        "size",
+        "64x64"
+      ],
+      "v1_read_supported": true,
+      "v1_write_roundtrip": "passthrough",
+      "file_sha256": "ef24c530b8082d556161b48738ce1412b07e8d5fe6afd84dddd84228485adaef",
+      "file_size": 13858,
+      "header": {
+        "width": 64,
+        "height": 64,
+        "channels": 3,
+        "depth": 8,
+        "version": 1,
+        "color_mode": 3
+      },
+      "layer_count": 1,
+      "layers": [
+        {
+          "index": 0,
+          "name": "Big",
+          "kind": "pixel",
+          "bbox": {
+            "left": 0,
+            "top": 0,
+            "right": 64,
+            "bottom": 64
+          },
+          "width": 64,
+          "height": 64,
+          "opacity": 255,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "canvas-64x64-layer0.rgba",
+          "pixel_byte_count": 16384,
+          "skip_name_check": false
+        }
+      ],
+      "composite_sha256": "6a10325504993ff5de852ee50df37ca4052e4620a4a8901f2cc8f2c05bec7ca8"
+    },
+    {
+      "id": "two-layers",
+      "file": "two-layers.psd",
+      "description": "Two pixel layers with offset and opacity",
+      "tags": [
+        "multi",
+        "opacity",
+        "offset"
+      ],
+      "v1_read_supported": true,
+      "v1_write_roundtrip": "passthrough",
+      "file_sha256": "0d5d9de409251f6dbf960e29ea083cf8321de3453b241cfd93c1e4d04b2bc152",
+      "file_size": 1734,
+      "header": {
+        "width": 16,
+        "height": 16,
+        "channels": 3,
+        "depth": 8,
+        "version": 1,
+        "color_mode": 3
+      },
+      "layer_count": 2,
+      "layers": [
+        {
+          "index": 0,
+          "name": "Green",
+          "kind": "pixel",
+          "bbox": {
+            "left": 0,
+            "top": 0,
+            "right": 16,
+            "bottom": 16
+          },
+          "width": 16,
+          "height": 16,
+          "opacity": 255,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "two-layers-layer0.rgba",
+          "pixel_byte_count": 1024,
+          "skip_name_check": false
+        },
+        {
+          "index": 1,
+          "name": "Blue",
+          "kind": "pixel",
+          "bbox": {
+            "left": 2,
+            "top": 2,
+            "right": 12,
+            "bottom": 12
+          },
+          "width": 10,
+          "height": 10,
+          "opacity": 200,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "two-layers-layer1.rgba",
+          "pixel_byte_count": 400,
+          "skip_name_check": false
+        }
+      ],
+      "composite_sha256": "725cf27cc81643068ca6d3fb5f8dc0290dcd7e711550b2f63d8b8c7c1ad703c2"
+    },
+    {
+      "id": "three-layers",
+      "file": "three-layers.psd",
+      "description": "Three-layer stack",
+      "tags": [
+        "multi",
+        "3"
+      ],
+      "v1_read_supported": true,
+      "v1_write_roundtrip": "passthrough",
+      "file_sha256": "a9b14455c70f7b1b2c0cc7055fbcd3ed7913cf8ca03f1221cfdc383b96adffae",
+      "file_size": 3278,
+      "header": {
+        "width": 24,
+        "height": 24,
+        "channels": 3,
+        "depth": 8,
+        "version": 1,
+        "color_mode": 3
+      },
+      "layer_count": 3,
+      "layers": [
+        {
+          "index": 0,
+          "name": "Back",
+          "kind": "pixel",
+          "bbox": {
+            "left": 0,
+            "top": 0,
+            "right": 24,
+            "bottom": 24
+          },
+          "width": 24,
+          "height": 24,
+          "opacity": 255,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "three-layers-layer0.rgba",
+          "pixel_byte_count": 2304,
+          "skip_name_check": false
+        },
+        {
+          "index": 1,
+          "name": "Mid",
+          "kind": "pixel",
+          "bbox": {
+            "left": 4,
+            "top": 4,
+            "right": 20,
+            "bottom": 20
+          },
+          "width": 16,
+          "height": 16,
+          "opacity": 220,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "three-layers-layer1.rgba",
+          "pixel_byte_count": 1024,
+          "skip_name_check": false
+        },
+        {
+          "index": 2,
+          "name": "Front",
+          "kind": "pixel",
+          "bbox": {
+            "left": 8,
+            "top": 8,
+            "right": 16,
+            "bottom": 16
+          },
+          "width": 8,
+          "height": 8,
+          "opacity": 255,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "three-layers-layer2.rgba",
+          "pixel_byte_count": 256,
+          "skip_name_check": false
+        }
+      ],
+      "composite_sha256": "b1e20e1840be895812333aa86d2e1e9b375db65a3fe2842bacec91a6f71a7416"
+    },
+    {
+      "id": "mixed-compression",
+      "file": "mixed-compression.psd",
+      "description": "RAW + RLE layers in one document",
+      "tags": [
+        "multi",
+        "raw",
+        "rle"
+      ],
+      "v1_read_supported": true,
+      "v1_write_roundtrip": "passthrough",
+      "file_sha256": "40b9af210c9bac0ae8e7895f3a208db110fff4b7a6898660ea86ec9437c1a618",
+      "file_size": 1766,
+      "header": {
+        "width": 12,
+        "height": 12,
+        "channels": 3,
+        "depth": 8,
+        "version": 1,
+        "color_mode": 3
+      },
+      "layer_count": 2,
+      "layers": [
+        {
+          "index": 0,
+          "name": "RawLayer",
+          "kind": "pixel",
+          "bbox": {
+            "left": 0,
+            "top": 0,
+            "right": 12,
+            "bottom": 12
+          },
+          "width": 12,
+          "height": 12,
+          "opacity": 255,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "mixed-compression-layer0.rgba",
+          "pixel_byte_count": 576,
+          "skip_name_check": false
+        },
+        {
+          "index": 1,
+          "name": "RleLayer",
+          "kind": "pixel",
+          "bbox": {
+            "left": 2,
+            "top": 2,
+            "right": 10,
+            "bottom": 10
+          },
+          "width": 8,
+          "height": 8,
+          "opacity": 255,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "mixed-compression-layer1.rgba",
+          "pixel_byte_count": 256,
+          "skip_name_check": false
+        }
+      ],
+      "composite_sha256": "1f15ae090ce651efeff4b7b156b1a8a58daae86e0030e5b966fef1e2928bd0ea"
+    },
+    {
+      "id": "layer-offset-10x10-on-32",
+      "file": "layer-offset-10x10-on-32.psd",
+      "description": "Layer smaller than canvas with offset bounds",
+      "tags": [
+        "bounds",
+        "offset"
+      ],
+      "v1_read_supported": true,
+      "v1_write_roundtrip": "passthrough",
+      "file_sha256": "b1c3fa9d5d1979d7104d5c85f0cba3820489714a962b52d2e06e331af9dd7331",
+      "file_size": 3566,
+      "header": {
+        "width": 32,
+        "height": 32,
+        "channels": 3,
+        "depth": 8,
+        "version": 1,
+        "color_mode": 3
+      },
+      "layer_count": 1,
+      "layers": [
+        {
+          "index": 0,
+          "name": "Small",
+          "kind": "pixel",
+          "bbox": {
+            "left": 5,
+            "top": 7,
+            "right": 15,
+            "bottom": 17
+          },
+          "width": 10,
+          "height": 10,
+          "opacity": 255,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "layer-offset-10x10-on-32-layer0.rgba",
+          "pixel_byte_count": 400,
+          "skip_name_check": false
+        }
+      ],
+      "composite_sha256": "3bd87232e96e4fae2e2d95084a905452e8c608cf79d5c654e1df2055a76eaf5c"
+    },
+    {
+      "id": "layer-opacity-50",
+      "file": "layer-opacity-50.psd",
+      "description": "Layer opacity 128",
+      "tags": [
+        "opacity"
+      ],
+      "v1_read_supported": true,
+      "v1_write_roundtrip": "passthrough",
+      "file_sha256": "4dd318c1e38399b45607f2a40b3f918f95975b18be145ddc56bbdf560575e8cc",
+      "file_size": 646,
+      "header": {
+        "width": 8,
+        "height": 8,
+        "channels": 3,
+        "depth": 8,
+        "version": 1,
+        "color_mode": 3
+      },
+      "layer_count": 1,
+      "layers": [
+        {
+          "index": 0,
+          "name": "Half",
+          "kind": "pixel",
+          "bbox": {
+            "left": 0,
+            "top": 0,
+            "right": 8,
+            "bottom": 8
+          },
+          "width": 8,
+          "height": 8,
+          "opacity": 128,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "layer-opacity-50-layer0.rgba",
+          "pixel_byte_count": 256,
+          "skip_name_check": false
+        }
+      ],
+      "composite_sha256": "0d1b5807a072040df4aab5871837e4296ddafc56a83226a1d098e6e86961c001"
+    },
+    {
+      "id": "layer-hidden",
+      "file": "layer-hidden.psd",
+      "description": "Second layer hidden in UI flags",
+      "tags": [
+        "visible",
+        "flags"
+      ],
+      "v1_read_supported": true,
+      "v1_write_roundtrip": "passthrough",
+      "file_sha256": "61cf00bc00ca05697f53af657327dcd3fd118924cc214842f12032b701125914",
+      "file_size": 958,
+      "header": {
+        "width": 8,
+        "height": 8,
+        "channels": 3,
+        "depth": 8,
+        "version": 1,
+        "color_mode": 3
+      },
+      "layer_count": 2,
+      "layers": [
+        {
+          "index": 0,
+          "name": "Visible",
+          "kind": "pixel",
+          "bbox": {
+            "left": 0,
+            "top": 0,
+            "right": 8,
+            "bottom": 8
+          },
+          "width": 8,
+          "height": 8,
+          "opacity": 255,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "layer-hidden-layer0.rgba",
+          "pixel_byte_count": 256,
+          "skip_name_check": false
+        },
+        {
+          "index": 1,
+          "name": "Hidden",
+          "kind": "pixel",
+          "bbox": {
+            "left": 0,
+            "top": 0,
+            "right": 8,
+            "bottom": 8
+          },
+          "width": 8,
+          "height": 8,
+          "opacity": 255,
+          "visible": false,
+          "blend_mode": "norm",
+          "rgba_file": "layer-hidden-layer1.rgba",
+          "pixel_byte_count": 256,
+          "skip_name_check": false
+        }
+      ],
+      "composite_sha256": "b4b8868b8dbbe0e497492d5b01faa59813760910557b898c169177175b451636"
+    },
+    {
+      "id": "layer-name-unicode",
+      "file": "layer-name-unicode.psd",
+      "description": "Unicode layer name (luni when saved by psd-tools)",
+      "tags": [
+        "unicode",
+        "name"
+      ],
+      "v1_read_supported": true,
+      "v1_write_roundtrip": "passthrough",
+      "file_sha256": "59c395316199ae1843c6e6a68920c04b115535a87512f768cfab0e9c4ad2ea02",
+      "file_size": 650,
+      "header": {
+        "width": 8,
+        "height": 8,
+        "channels": 3,
+        "depth": 8,
+        "version": 1,
+        "color_mode": 3
+      },
+      "layer_count": 1,
+      "layers": [
+        {
+          "index": 0,
+          "name": "ÂõæÂ±ÇŒ±",
+          "kind": "pixel",
+          "bbox": {
+            "left": 0,
+            "top": 0,
+            "right": 8,
+            "bottom": 8
+          },
+          "width": 8,
+          "height": 8,
+          "opacity": 255,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "layer-name-unicode-layer0.rgba",
+          "pixel_byte_count": 256,
+          "skip_name_check": true
+        }
+      ],
+      "composite_sha256": "5b9be0608b6e716df7eb5d809423259aba412630053484624dffce32980de5df"
+    },
+    {
+      "id": "rle-gradient-horizontal",
+      "file": "rle-gradient-horizontal.psd",
+      "description": "Horizontal gradient (mixed RLE runs)",
+      "tags": [
+        "rle",
+        "gradient"
+      ],
+      "v1_read_supported": true,
+      "v1_write_roundtrip": "passthrough",
+      "file_sha256": "2640f77ae501a08a811471311aa9695c0a0eb75fc7a0bb15aa438a032af09bd3",
+      "file_size": 1970,
+      "header": {
+        "width": 32,
+        "height": 8,
+        "channels": 3,
+        "depth": 8,
+        "version": 1,
+        "color_mode": 3
+      },
+      "layer_count": 1,
+      "layers": [
+        {
+          "index": 0,
+          "name": "Gradient",
+          "kind": "pixel",
+          "bbox": {
+            "left": 0,
+            "top": 0,
+            "right": 32,
+            "bottom": 8
+          },
+          "width": 32,
+          "height": 8,
+          "opacity": 255,
+          "visible": true,
+          "blend_mode": "norm",
+          "rgba_file": "rle-gradient-horizontal-layer0.rgba",
+          "pixel_byte_count": 1024,
+          "skip_name_check": false
+        }
+      ],
+      "composite_sha256": "21988fe5a0529173370b7a6c716ca4a86b64b3f2f4a1ec44b6ea4d56c87d8462"
+    }
+  ],
+  "rejections": [
+    {
+      "id": "reject-bad-signature",
+      "file": "rejections/reject-bad-signature.psd",
+      "expected_error": "invalidSignature"
+    },
+    {
+      "id": "reject-version-2",
+      "file": "rejections/reject-version-2.psd",
+      "expected_error": "unsupportedVersion"
+    },
+    {
+      "id": "reject-depth-16",
+      "file": "rejections/reject-depth-16.psd",
+      "expected_error": "unsupportedBitDepth"
+    },
+    {
+      "id": "reject-cmyk",
+      "file": "rejections/reject-cmyk.psd",
+      "expected_error": "unsupportedColorMode"
+    }
+  ],
+  "coverage_tags": [
+    "16x16",
+    "1x1",
+    "3",
+    "64x64",
+    "8x8",
+    "bounds",
+    "edge",
+    "flags",
+    "gradient",
+    "multi",
+    "name",
+    "offset",
+    "opacity",
+    "raw",
+    "rgba",
+    "rle",
+    "single",
+    "size",
+    "unicode",
+    "visible"
+  ]
+}

@@ -23,11 +23,13 @@ for case let layer as PixelLayer in doc.root.children {
 ## 构建与测试
 
 ```bash
+pip install psd-tools pillow
+python3 Scripts/generate_test_fixtures.py
 swift build
 swift test
 ```
 
-测试 fixture 由 [Scripts/generate_fixtures.py](./Scripts/generate_fixtures.py) 生成（依赖 `psd-tools`）。
+测试 fixture 由 [Scripts/generate_test_fixtures.py](./Scripts/generate_test_fixtures.py) 生成（`generate_fixtures.py` 为兼容入口；依赖 `psd-tools`）。
 
 ## 参考实现
 
@@ -39,3 +41,5 @@ swift test
 |------|------|
 | [docs/01-landscape.md](./docs/01-landscape.md) | 跨语言参考全景 |
 | [docs/05-implementation-plan.md](./docs/05-implementation-plan.md) | 实现计划与进度 |
+
+测试说明见 [docs/06-testing.md](./docs/06-testing.md)。

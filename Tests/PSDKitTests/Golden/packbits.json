@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "name": "empty",
+      "raw_hex": "",
+      "encoded_hex": "",
+      "size": 0
+    },
+    {
+      "name": "single",
+      "raw_hex": "ab",
+      "encoded_hex": "00ab",
+      "size": 1
+    },
+    {
+      "name": "solid100",
+      "raw_hex": "abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab",
+      "encoded_hex": "9dab",
+      "size": 100
+    },
+    {
+      "name": "literal50",
+      "raw_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031",
+      "encoded_hex": "31000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031",
+      "size": 50
+    },
+    {
+      "name": "alt_run",
+      "raw_hex": "0000000000000000000000000000000000000000ffffffffffffffffffffffffffffffffffffffff",
+      "encoded_hex": "ed00edff",
+      "size": 40
+    }
+  ]
+}
