@@ -17,6 +17,22 @@ final class DocumentModel: ObservableObject {
         return document.root.children.map(\.name)
     }
 
+    func newDocument(width: Int = 256, height: Int = 256) {
+        do {
+            let doc = try PSDDocument.create(width: width, height: height)
+            document = doc
+            fileURL = nil
+            selectedLayerIndex = nil
+            errorMessage = nil
+            statusMessage = "New document \(width)×\(height)"
+            refreshPreview()
+        } catch let error as PSDError {
+            errorMessage = error.userMessage
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func presentOpenPanel() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.data]

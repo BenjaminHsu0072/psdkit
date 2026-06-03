@@ -12,6 +12,7 @@ struct ContentView: View {
         .navigationTitle(model.fileURL?.lastPathComponent ?? "PSDViewer")
         .toolbar {
             ToolbarItemGroup {
+                Button("New") { model.newDocument() }
                 Button("Open") { model.presentOpenPanel() }
                 Button("Save") { model.saveDocument() }
                     .disabled(model.document == nil)

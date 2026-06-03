@@ -24,6 +24,66 @@ public final class PSDDocument: @unchecked Sendable {
         self.rawFile = rawFile
     }
 
+
+    // MARK: - Create new document
+
+    /// Creates a new 8-bit RGB PSD (version 1). Layers are ordered bottom-to-top in the array.
+    /// Save/export always uses semantic encoding (`sourceData` is empty).
+    public static func create(
+        canvasSize: PSDSize,
+        layers: [PixelLayer] = [],
+        colorMode: ColorMode = .rgb
+    ) throws -> PSDDocument {
+        let file = try NewDocumentFactory.makeFile(
+            canvasSize: canvasSize,
+            layers: layers,
+            colorMode: colorMode
+        )
+        let root = GroupLayer(name: "")
+        for layer in layers {
+            root.append(layer)
+        }
+        let doc = PSDDocument(
+            canvasSize: canvasSize,
+            colorMode: colorMode,
+            root: root,
+            rawFile: file
+        )
+        doc.isContentDirty = true
+        return doc
+    }
+
+    public static func create(width: Int, height: Int, layers: [PixelLayer] = []) throws -> PSDDocument {
+        try create(canvasSize: PSDSize(width: width, height: height), layers: layers)
+    }
+
+    /// Full-canvas solid layer for export workflows.
+    public static func makeSolidLayer(
+        name: String,
+        canvasSize: PSDSize,
+        red: UInt8,
+        green: UInt8,
+        blue: UInt8,
+        alpha: UInt8 = 255
+    ) throws -> PixelLayer {
+        let count = canvasSize.width * canvasSize.height
+        var rgba = Data(count: count * 4)
+        rgba.withUnsafeMutableBytes { raw in
+            let bytes = raw.bindMemory(to: UInt8.self)
+            for i in 0 ..< count {
+                bytes[i * 4] = red
+                bytes[i * 4 + 1] = green
+                bytes[i * 4 + 2] = blue
+                bytes[i * 4 + 3] = alpha
+            }
+        }
+        return try PixelLayer(
+            name: name,
+            frame: PSDRect(left: 0, top: 0, right: canvasSize.width, bottom: canvasSize.height),
+            pixels: PixelBuffer(width: canvasSize.width, height: canvasSize.height, rgba: rgba)
+        )
+    }
+
     public static func load(data: Data) throws -> PSDDocument {
         let file = try PSDFile.read(data: data)
         return try DocumentBuilder.makeDocument(from: file)
@@ -35,7 +95,7 @@ public final class PSDDocument: @unchecked Sendable {
     }
 
     public func data(writeMode: PSDWriteMode = .passthrough) throws -> Data {
-        let effective: PSDWriteMode = isContentDirty ? .semantic : writeMode
+        let effective: PSDWriteMode = (isContentDirty || rawFile.sourceData.isEmpty) ? .semantic : writeMode
         switch effective {
         case .passthrough:
             return try rawFile.write(passthrough: true)

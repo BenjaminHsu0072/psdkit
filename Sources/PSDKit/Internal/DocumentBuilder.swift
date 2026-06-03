@@ -29,11 +29,27 @@ enum DocumentBuilder {
     /// Rebuilds layer channel planes from public `PixelLayer` values (semantic write).
     static func syncRawFile(from document: PSDDocument) throws -> PSDFile {
         var file = document.rawFile
+        let pixels = document.root.children.compactMap { $0 as? PixelLayer }
+
+        if file.layerAndMask.layerInfo == nil {
+            if pixels.isEmpty {
+                file.imageData = try CompositeBuilder.buildImageData(
+                    canvasSize: document.canvasSize,
+                    layers: [],
+                    compression: file.imageData.compression,
+                    depth: Int(file.header.depth),
+                    psdVersion: Int(file.header.version)
+                )
+                return file
+            }
+            let records = try pixels.map { try LayerRecordFactory.makeRecord(from: $0) }
+            file.layerAndMask.layerInfo = LayerInfo(layerCount: Int16(records.count), layers: records)
+        }
+
         guard var layerInfo = file.layerAndMask.layerInfo else {
             throw PSDError.corruptStructure("no layer info to sync")
         }
 
-        let pixels = document.root.children.compactMap { $0 as? PixelLayer }
         let templates = layerInfo.layers.filter { $0.width > 0 && $0.height > 0 }
         guard pixels.count == templates.count else {
             throw PSDError.corruptStructure(

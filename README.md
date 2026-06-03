@@ -18,6 +18,13 @@ Swift 库：读写 **8-bit RGB(A) 位图图层** PSD 文件（首版）。
 ```swift
 import PSDKit
 
+// 从空白新建并导出
+let size = PSDSize(width: 256, height: 256)
+let layer = try PSDDocument.makeSolidLayer(name: "Export", canvasSize: size, red: 255, green: 0, blue: 0)
+var doc = try PSDDocument.create(canvasSize: size, layers: [layer])
+try doc.save(to: URL(fileURLWithPath: "out.psd"))
+
+// 或打开已有文件
 let doc = try PSDDocument.load(url: URL(fileURLWithPath: "sample.psd"))
 for case let layer as PixelLayer in doc.root.children {
     print(layer.name, layer.frame, layer.pixels.rgba.count)

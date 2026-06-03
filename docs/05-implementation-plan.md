@@ -68,6 +68,15 @@
 
 ---
 
+## 阶段 3.5：从 0 新建 PSD
+
+| 任务 | 验收 |
+|------|------|
+| [x] `PSDDocument.create` / `makeSolidLayer` | CreateDocumentTests |
+| [x] 空画布导出 | 仅复合图 |
+
+---
+
 ## 阶段 4：图层编辑 API
 
 **目标**：增删改图层与属性。
