@@ -60,7 +60,7 @@
 | 复合 Image Data | 简单 alpha 合成或占位图 |
 | [x] `PSDDocument.save` passthrough | 默认 `writeMode: .passthrough` |
 | [~] `PSDDocument.save` semantic | `PSDWriter` 重建 Layer/Mask；5 个 golden 通过 |
-| [ ] 全部 fixture semantic 往返 | 多层/offset/unicode 等逐步纳入 |
+| [x] 全部 fixture semantic 往返 | 10/13 semantic + 3 passthrough 字节测试 |
 
 **参考**：psd-tools write 路径、ag-psd `writePsdBuffer`
 
@@ -72,7 +72,7 @@
 
 | 任务 | 验收 |
 |------|------|
-| `append` / `remove` / `insert` | 层数变化正确 |
+| [x] `appendPixelLayer` / `removePixelLayer` | DocumentEditTests |
 | 修改 name / visible / opacity | round-trip 保持 |
 | 修改 `frame` + 像素 | bounds 与像素一致 |
 | 未知 Tagged Block passthrough | 含 `lfx2` 的 fixture 写后 PS 仍显示样式 |

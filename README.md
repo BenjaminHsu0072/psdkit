@@ -8,6 +8,7 @@ Swift 库：读写 **8-bit RGB(A) 位图图层** PSD 文件（首版）。
 - [x] 核心读路径：`PSDDocument.load`、图层像素、`PackBits` RLE
 - [x] 语义写编码（`save(writeMode: .semantic)`，golden 覆盖中）
 - [~] 完整写编码（默认仍为读入字节透传）
+- [x] 图层 `appendPixelLayer` / `removePixelLayer`
 - [ ] macOS Viewer
 
 ## 快速开始

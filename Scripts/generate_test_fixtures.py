@@ -29,7 +29,7 @@ from typing import Any
 try:
     from PIL import Image
     from psd_tools import PSDImage
-    from psd_tools.constants import BlendMode, Compression
+    from psd_tools.constants import BlendMode, Compression, Tag
 except ImportError:
     print("Install: pip install psd-tools pillow", file=sys.stderr)
     sys.exit(1)
@@ -91,10 +91,15 @@ def build_psd(spec: DocSpec, path: Path) -> None:
         )
         if not layer_spec.visible:
             layer.visible = False
-    psd.save(path, encoding='utf-8')
+    for layer_spec, layer in zip(spec.layers, list(psd)):
+        if any(ord(c) > 127 for c in layer_spec.name):
+            rec = layer._record
+            rec.name = "Lyr"
+            rec.tagged_blocks.set_data(Tag.UNICODE_LAYER_NAME, layer_spec.name)
+    psd.save(path, encoding="macroman")
 
 
-def layer_entry(layer, index: int, fixture_id: str, skip_name: bool = False) -> dict[str, Any]:
+def layer_entry(layer, index: int, fixture_id: str, skip_name: bool = False, layer_spec_name: str | None = None) -> dict[str, Any]:
     bbox = layer.bbox  # (left, top, right, bottom)
     pixels = rgba_from_layer_numpy(layer)
     rgba_name = f"{fixture_id}-layer{index}.rgba"
@@ -103,7 +108,7 @@ def layer_entry(layer, index: int, fixture_id: str, skip_name: bool = False) -> 
         (RGBA_DIR / rgba_name).write_bytes(pixels)
     return {
         "index": index,
-        "name": layer.name,
+        "name": layer_spec_name if layer_spec_name is not None else layer.name,
         "kind": str(layer.kind),
         "bbox": {
             "left": bbox[0],
@@ -168,14 +173,16 @@ def manifest_entry(spec: DocSpec, path: Path) -> dict[str, Any]:
             "color_mode": 3,
         },
         "layer_count": len(layers),
-        "layers": [layer_entry(layer, i, spec.id, skip_name=(spec.id == "layer-name-unicode")) for i, layer in enumerate(layers)],
+        "layers": [layer_entry(layer, i, spec.id, skip_name=False, layer_spec_name=spec.layers[i].name if i < len(spec.layers) else None) for i, layer in enumerate(layers)],
         "composite_sha256": sha256_bytes(composite_bytes) if composite_bytes else None,
     }
 
 
-SEMANTIC_WRITE_IDS = frozenset({
-    "single-rle-8x8", "single-raw-8x8", "canvas-1x1",
-    "single-rgba-rle-16x16", "mixed-compression",
+# Byte-identical round-trip tests keep passthrough; all others use semantic write.
+PASSTHROUGH_WRITE_IDS = frozenset({
+    "single-rle-8x8",
+    "three-layers",
+    "rle-gradient-horizontal",
 })
 
 
@@ -184,7 +191,7 @@ def all_specs() -> list[DocSpec]:
     specs: list[DocSpec] = []
 
     def add(spec: DocSpec) -> None:
-        if spec.id in SEMANTIC_WRITE_IDS:
+        if spec.id not in PASSTHROUGH_WRITE_IDS:
             spec.v1_write_roundtrip = "semantic"
         specs.append(spec)
 
@@ -386,7 +393,12 @@ def build_gradient_psd(spec: DocSpec, path: Path) -> None:
         left=layer_spec.left,
         compression=layer_spec.compression,
     )
-    psd.save(path, encoding='utf-8')
+    for layer_spec, layer in zip(spec.layers, list(psd)):
+        if any(ord(c) > 127 for c in layer_spec.name):
+            rec = layer._record
+            rec.name = "Lyr"
+            rec.tagged_blocks.set_data(Tag.UNICODE_LAYER_NAME, layer_spec.name)
+    psd.save(path, encoding="macroman")
 
 
 def generate_packbits_vectors() -> list[dict[str, Any]]:

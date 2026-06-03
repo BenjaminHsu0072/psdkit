@@ -81,6 +81,7 @@ enum DocumentBuilder {
         record.opacity = pixel.opacity
         record.flags.visible = pixel.isVisible
         record.blendMode = pixel.blendMode
+        record.extraData = LayerExtra.updateName(in: template.extraData, name: pixel.name)
 
         let (r, g, b, a) = try PlanarRGBA.deinterleave(
             pixel.pixels.rgba,

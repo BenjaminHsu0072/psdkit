@@ -98,6 +98,9 @@ struct LayerRecord: Equatable, Sendable {
                 name = try extraReader.readPascalString(padding: 4)
             }
         }
+        if let unicode = LayerExtra.unicodeName(from: extraData) {
+            name = unicode
+        }
 
         return LayerRecord(
             top: top,

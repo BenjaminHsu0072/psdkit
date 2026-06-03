@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-06-03T04:14:06.068383+00:00",
+  "generated_at": "2026-06-03T04:30:12.872370+00:00",
   "generator": "Scripts/generate_test_fixtures.py",
   "reference": "psd-tools",
   "fixtures": [
@@ -14,7 +14,7 @@
         "8x8"
       ],
       "v1_read_supported": true,
-      "v1_write_roundtrip": "semantic",
+      "v1_write_roundtrip": "passthrough",
       "file_sha256": "e16cfbafbd85282e2069f085f22719a99c659d7aa040ef4054a3854e453452e7",
       "file_size": 650,
       "header": {
@@ -193,7 +193,7 @@
         "64x64"
       ],
       "v1_read_supported": true,
-      "v1_write_roundtrip": "passthrough",
+      "v1_write_roundtrip": "semantic",
       "file_sha256": "ef24c530b8082d556161b48738ce1412b07e8d5fe6afd84dddd84228485adaef",
       "file_size": 13858,
       "header": {
@@ -238,7 +238,7 @@
         "offset"
       ],
       "v1_read_supported": true,
-      "v1_write_roundtrip": "passthrough",
+      "v1_write_roundtrip": "semantic",
       "file_sha256": "0d5d9de409251f6dbf960e29ea083cf8321de3453b241cfd93c1e4d04b2bc152",
       "file_size": 1734,
       "header": {
@@ -447,7 +447,7 @@
         "offset"
       ],
       "v1_read_supported": true,
-      "v1_write_roundtrip": "passthrough",
+      "v1_write_roundtrip": "semantic",
       "file_sha256": "b1c3fa9d5d1979d7104d5c85f0cba3820489714a962b52d2e06e331af9dd7331",
       "file_size": 3566,
       "header": {
@@ -490,7 +490,7 @@
         "opacity"
       ],
       "v1_read_supported": true,
-      "v1_write_roundtrip": "passthrough",
+      "v1_write_roundtrip": "semantic",
       "file_sha256": "4dd318c1e38399b45607f2a40b3f918f95975b18be145ddc56bbdf560575e8cc",
       "file_size": 646,
       "header": {
@@ -534,7 +534,7 @@
         "flags"
       ],
       "v1_read_supported": true,
-      "v1_write_roundtrip": "passthrough",
+      "v1_write_roundtrip": "semantic",
       "file_sha256": "61cf00bc00ca05697f53af657327dcd3fd118924cc214842f12032b701125914",
       "file_size": 958,
       "header": {
@@ -597,9 +597,9 @@
         "name"
       ],
       "v1_read_supported": true,
-      "v1_write_roundtrip": "passthrough",
-      "file_sha256": "59c395316199ae1843c6e6a68920c04b115535a87512f768cfab0e9c4ad2ea02",
-      "file_size": 650,
+      "v1_write_roundtrip": "semantic",
+      "file_sha256": "28d584416fcb1a1ce382ff5e1aecbd26629dafa7921869ad8713d226fe68e997",
+      "file_size": 666,
       "header": {
         "width": 8,
         "height": 8,
@@ -612,7 +612,7 @@
       "layers": [
         {
           "index": 0,
-          "name": "ÂõæÂ±ÇŒ±",
+          "name": "图层α",
           "kind": "pixel",
           "bbox": {
             "left": 0,
@@ -627,7 +627,7 @@
           "blend_mode": "norm",
           "rgba_file": "layer-name-unicode-layer0.rgba",
           "pixel_byte_count": 256,
-          "skip_name_check": true
+          "skip_name_check": false
         }
       ],
       "composite_sha256": "5b9be0608b6e716df7eb5d809423259aba412630053484624dffce32980de5df"

@@ -11,7 +11,7 @@ final class GoldenWriteTests: XCTestCase {
 
     func testPassthroughRoundTripBytes() throws {
         let passthrough = manifest.fixtures.filter { $0.v1WriteRoundtrip == "passthrough" }
-        XCTAssertGreaterThanOrEqual(passthrough.count, 5)
+        XCTAssertGreaterThanOrEqual(passthrough.count, 3)
 
         for entry in passthrough {
             let url = GoldenLoader.fixtureURL(for: entry)

@@ -74,11 +74,11 @@ enum PSDWriter {
         var infos = record.channelInfo
 
         for (index, info) in infos.enumerated() {
-            if info.length == 0 {
+            if info.length == 0, record.channelData[info.id] == nil {
                 payloads.append(Data())
                 continue
             }
-            if info.length == 1 {
+            if info.length == 1, record.channelData[info.id] == nil {
                 payloads.append(Data([0]))
                 infos[index].length = 1
                 continue
