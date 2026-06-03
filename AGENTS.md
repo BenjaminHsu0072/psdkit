@@ -2,10 +2,16 @@
 
 PSDKit：Swift PSD 读写库（8-bit RGB(A) 位图图层）。
 
+## Git 工作流（方案 C）
+
+- **唯一集成分支：`main`**
+- 完成功能且 `swift test` 通过后：**直接 `git push origin main`**
+- **不要**开 Draft PR，不要等人工 Merge
+- 可选：本地用 `cursor/<name>-9904` 开发，合并后 push `main` 即可
+
 ## 基线
 
-- **默认分支：`main`**（含读/写/TDD/语义编码/复合图/Viewer）
-- 新功能：`git checkout main && git pull` → `git checkout -b cursor/<name>-9904`
+`main` 已包含：读/写/TDD/语义编码/复合图/Viewer/CI。
 
 ## 常用命令
 
