@@ -1,4 +1,6 @@
-# 参考实现与对标说明
+# 参考实现与对标说明（速查）
+
+> **扩展版全景调研**见 **[01-landscape.md](./01-landscape.md)**。
 
 ## 1. 规范与综述
 
@@ -12,7 +14,23 @@
 
 ---
 
-## 2. Swift 生态现状
+## 2. 非 Swift 核心对标（必读）
+
+| 优先级 | 项目 | 语言 | v1 用途 |
+|--------|------|------|---------|
+| ★★★ | [psd-tools](https://github.com/psd-tools/psd-tools) | Python | 低/高层 API、读写、测试 |
+| ★★★ | [psd_sdk](https://github.com/MolecularMatters/psd_sdk) | C++ | RLE、平面通道、Exporter |
+| ★★☆ | [ag-psd](https://github.com/Agamnentzar/ag-psd) | TypeScript | 写盘 fixture、children 树 |
+| ★★☆ | [GIMP file-psd](https://github.com/GNOME/gimp/tree/master/plug-ins/file-psd) | C | PS↔GIMP 互操作 |
+| ★☆☆ | [pytoshop](https://github.com/mdboom/pytoshop) / [JPSD](https://github.com/Minecraftian14/JPSD) | Py/Java | 从零写多层 PSD |
+| ☆ | [PhotoshopAPI](https://github.com/EmilDohne/PhotoshopAPI) | C++ | 复杂负例 |
+| ✗ | ImageMagick / npm `psd` / stb | — | **不作为**核心参考 |
+
+更多见 [01-landscape.md](./01-landscape.md)。
+
+---
+
+## 3. Swift 生态现状
 
 | 项目 | 语言 | 读写 | 维护 | 评价 |
 |------|------|------|------|------|
@@ -41,7 +59,7 @@ public struct PhotoshopDocument {
 
 ---
 
-## 3. 首选逻辑对标：psd-tools
+## 4. 首选逻辑对标：psd-tools
 
 **仓库**：[psd-tools/psd-tools](https://github.com/psd-tools/psd-tools)  
 **文档**：[readthedocs](https://psd-tools.readthedocs.io/)
@@ -99,7 +117,7 @@ psd-tools 使用的 struct 格式（Big-Endian）：
 
 ---
 
-## 4. 首选算法对标：psd_sdk (Molecular Matters)
+## 5. 首选算法对标：psd_sdk (Molecular Matters)
 
 **仓库**：[MolecularMatters/psd_sdk](https://github.com/MolecularMatters/psd_sdk)（~650⭐，BSD-2-Clause）
 
@@ -128,7 +146,7 @@ Photoshop 8-bit 使用 **Apple PackBits**，与 psd-tools 的 `encode`/`decode` 
 
 ---
 
-## 5. 读写闭环参考：ag-psd
+## 6. 读写闭环参考：ag-psd
 
 **仓库**：[Agamnentzar/ag-psd](https://github.com/Agamnentzar/ag-psd)（TypeScript，~650⭐）
 
@@ -145,7 +163,7 @@ Photoshop 8-bit 使用 **Apple PackBits**，与 psd-tools 的 `encode`/`decode` 
 
 ---
 
-## 6. 全功能参考：PhotoshopAPI
+## 7. 全功能参考：PhotoshopAPI
 
 **仓库**：[EmilDohne/PhotoshopAPI](https://github.com/EmilDohne/PhotoshopAPI)  
 **文档**：[photoshopapi.readthedocs.io](https://photoshopapi.readthedocs.io/)
@@ -161,7 +179,7 @@ Photoshop 8-bit 使用 **Apple PackBits**，与 psd-tools 的 `encode`/`decode` 
 
 ---
 
-## 7. 参考代码映射表（实现 checklist）
+## 8. 参考代码映射表（实现 checklist）
 
 实现某功能前，建议按此表打开对照仓库：
 
@@ -179,7 +197,7 @@ Photoshop 8-bit 使用 **Apple PackBits**，与 psd-tools 的 `encode`/`decode` 
 
 ---
 
-## 8. 测试与 Fixture 策略
+## 9. 测试与 Fixture 策略
 
 | 来源 | 内容 |
 |------|------|
@@ -196,7 +214,7 @@ Photoshop 8-bit 使用 **Apple PackBits**，与 psd-tools 的 `encode`/`decode` 
 
 ---
 
-## 9. 许可证注意
+## 10. 许可证注意
 
 | 项目 | 许可证 | 抄代码 |
 |------|--------|--------|

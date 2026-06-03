@@ -6,7 +6,8 @@
 
 | 文档 | 说明 |
 |------|------|
-| [01-references.md](./01-references.md) | 规范来源与对标参考实现（含链接与模块映射） |
+| [**01-landscape.md**](./01-landscape.md) | **跨语言 PSD 生态全景**（能力矩阵、推荐组合） |
+| [01-references.md](./01-references.md) | 实施速查与源文件映射 |
 | [02-format-v1.md](./02-format-v1.md) | 首版支持的 PSD 二进制结构与读写要点 |
 | [03-architecture.md](./03-architecture.md) | 仓库结构：核心库 / Viewer / 测试 |
 | [04-api-design.md](./04-api-design.md) | 计划中的 Swift 公开 API 与数据模型 |
@@ -27,8 +28,4 @@
 
 ## 建议的对标实现（优先级）
 
-1. **[psd-tools](https://github.com/psd-tools/psd-tools)**（Python）— 低层结构与高层 API 分离最好，**首选逻辑对标**
-2. **[psd_sdk](https://github.com/MolecularMatters/psd_sdk)**（C++）— RLE、平面通道、两段式读取，**首选算法对标**
-3. **[ag-psd](https://github.com/Agamnentzar/ag-psd)**（TypeScript）— 读写闭环与测试习惯值得借鉴
-4. **[PhotoshopReader](https://github.com/hughbe/PhotoshopReader)**（Swift）— 仅读、结构清晰，**Swift 风格参考**
-5. **[PhotoshopAPI](https://github.com/EmilDohne/PhotoshopAPI)**（C++20）— 功能最全，用于边界 case 与回归样本来源
+详见 [01-landscape.md](./01-landscape.md)。摘要：psd-tools、psd_sdk、ag-psd、GIMP file-psd、JPSD/pytoshop；Swift 仅 PhotoshopReader（只读）。

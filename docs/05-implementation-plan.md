@@ -2,7 +2,7 @@
 
 ## 阶段 0：准备（当前）
 
-- [x] 调研参考实现
+- [x] 调研参考实现（跨语言全景见 01-landscape.md）
 - [x] 编写 `docs/` 设计文档
 - [ ] 添加 `Package.swift` 骨架与空 target
 - [ ] 添加最小 Fixtures（可用脚本生成）
