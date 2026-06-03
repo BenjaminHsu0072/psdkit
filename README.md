@@ -2,15 +2,16 @@
 
 Swift 库：读写 **8-bit RGB(A) 位图图层** PSD 文件（首版）。
 
-## 状态
+## 状态（`main`）
 
-- [x] 设计文档（[`docs/`](./docs/)）
-- [x] 核心读路径：`PSDDocument.load`、图层像素、`PackBits` RLE
-- [x] 语义写编码（`save(writeMode: .semantic)`，golden 覆盖中）
-- [~] 完整写编码（默认仍为读入字节透传）
-- [x] 图层 `appendPixelLayer` / `removePixelLayer`
-- [x] 复合图重建 + `markContentModified`
-- [x] macOS Viewer（[`Apps/PSDViewer`](./Apps/PSDViewer/)）
+| 能力 | 说明 |
+|------|------|
+| 读路径 | `PSDDocument.load`、RLE/RAW 通道、多层 RGBA |
+| 写路径 | 默认 **passthrough**；`writeMode: .semantic` 重建图层与复合图 |
+| 图层编辑 | `appendPixelLayer` / `removePixelLayer`、`markContentModified()` |
+| Unicode 名 | `luni` 解析与写入 |
+| 测试 | 20 项 golden / TDD（见 [docs/06-testing.md](./docs/06-testing.md)） |
+| Viewer | macOS [`Apps/PSDViewer`](./Apps/PSDViewer/) |
 
 ## 快速开始
 
@@ -21,28 +22,46 @@ let doc = try PSDDocument.load(url: URL(fileURLWithPath: "sample.psd"))
 for case let layer as PixelLayer in doc.root.children {
     print(layer.name, layer.frame, layer.pixels.rgba.count)
 }
+
+// 编辑后语义写回
+layer.opacity = 200
+doc.markContentModified()
+try doc.save(to: outURL)  // 未 mark 时默认 passthrough 原字节
 ```
 
 ## 构建与测试
 
 ```bash
-pip install psd-tools pillow
-python3 Scripts/generate_test_fixtures.py
 swift build
 swift test
 ```
 
-测试 fixture 由 [Scripts/generate_test_fixtures.py](./Scripts/generate_test_fixtures.py) 生成（`generate_fixtures.py` 为兼容入口；依赖 `psd-tools`）。
+再生 golden fixture（需 Python）：
 
-## 参考实现
+```bash
+pip install psd-tools pillow
+python3 Scripts/generate_test_fixtures.py
+```
 
-见 [docs/01-landscape.md](./docs/01-landscape.md) 与 [docs/REFERENCES.md](./docs/REFERENCES.md)。
+## macOS Viewer
+
+```bash
+cd Apps/PSDViewer && swift run PSDViewer
+```
 
 ## 文档
 
 | 文档 | 说明 |
 |------|------|
-| [docs/01-landscape.md](./docs/01-landscape.md) | 跨语言参考全景 |
-| [docs/05-implementation-plan.md](./docs/05-implementation-plan.md) | 实现计划与进度 |
+| [docs/README.md](./docs/README.md) | 文档索引 |
+| [docs/05-implementation-plan.md](./docs/05-implementation-plan.md) | 实现计划 |
+| [docs/06-testing.md](./docs/06-testing.md) | 测试与 TDD |
 
-测试说明见 [docs/06-testing.md](./docs/06-testing.md)。
+## 开发分支说明
+
+历史 PR 分支（`cursor/psdkit-*-9904`）已 **fast-forward 合并入 `main`**。后续开发请从 `main` 拉取：
+
+```bash
+git checkout main && git pull
+git checkout -b cursor/<feature>-9904
+```
