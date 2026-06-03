@@ -98,6 +98,20 @@ final class DocumentEditTests: XCTestCase {
         try? FileManager.default.removeItem(at: temp)
     }
 
+    func testLayerOffsetBoundsSemanticRoundTrip() throws {
+        let manifest = try GoldenLoader.loadManifest()
+        guard let entry = manifest.fixtures.first(where: { $0.id == "layer-offset-10x10-on-32" }) else {
+            throw XCTSkip("fixture not in manifest")
+        }
+        let url = GoldenLoader.fixtureURL(for: entry)
+        let doc = try PSDDocument.load(url: url)
+        let temp = FileManager.default.temporaryDirectory.appendingPathComponent("offset-semantic.psd")
+        try doc.save(to: temp, writeMode: .semantic)
+        let reloaded = try PSDDocument.load(url: temp)
+        try GoldenAssertions.assertDocumentMatchesGolden(reloaded, entry: entry)
+        try? FileManager.default.removeItem(at: temp)
+    }
+
     func testUnicodeLayerNameRoundTrip() throws {
         let url = try fixtureURL("layer-name-unicode.psd")
         let doc = try PSDDocument.load(url: url)

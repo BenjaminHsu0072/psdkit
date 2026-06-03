@@ -15,12 +15,25 @@ struct ContentView: View {
                 Button("Open") { model.presentOpenPanel() }
                 Button("Save") { model.saveDocument() }
                     .disabled(model.document == nil)
+                Divider()
+                Button {
+                    model.addPixelLayer()
+                } label: {
+                    Label("Add Layer", systemImage: "plus.square.on.square")
+                }
+                .disabled(model.document == nil)
+                Button {
+                    model.removeSelectedLayer()
+                } label: {
+                    Label("Remove", systemImage: "minus.square")
+                }
+                .disabled(model.document == nil || model.selectedLayerIndex == nil)
             }
         }
     }
 
     private var layerList: some View {
-        List {
+        List(selection: $model.selectedLayerIndex) {
             if model.layerNames.isEmpty {
                 Text("No document")
                     .foregroundStyle(.secondary)
@@ -35,11 +48,12 @@ struct ContentView: View {
                         .buttonStyle(.borderless)
                         Text(name)
                     }
+                    .tag(index)
                 }
             }
         }
         .listStyle(.sidebar)
-        .frame(minWidth: 180)
+        .frame(minWidth: 200)
     }
 
     private func visibilityIcon(at index: Int) -> String {

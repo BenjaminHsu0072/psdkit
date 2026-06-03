@@ -30,4 +30,5 @@ cd Apps/PSDViewer && swift run PSDViewer   # macOS only
 
 ## 文档
 
-`docs/05-implementation-plan.md`、`docs/06-testing.md`
+- [docs/07-workflow.md](docs/07-workflow.md) — **Git 工作流（方案 C）**
+- `docs/05-implementation-plan.md`、`docs/06-testing.md`

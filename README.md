@@ -10,7 +10,7 @@ Swift 库：读写 **8-bit RGB(A) 位图图层** PSD 文件（首版）。
 | 写路径 | 默认 **passthrough**；`writeMode: .semantic` 重建图层与复合图 |
 | 图层编辑 | `appendPixelLayer` / `removePixelLayer`、`markContentModified()` |
 | Unicode 名 | `luni` 解析与写入 |
-| 测试 | 22 项 golden / TDD（见 [docs/06-testing.md](./docs/06-testing.md)） |
+| 测试 | 23 项 golden / TDD（见 [docs/06-testing.md](./docs/06-testing.md)） |
 | Viewer | macOS [`Apps/PSDViewer`](./Apps/PSDViewer/) |
 
 ## 快速开始

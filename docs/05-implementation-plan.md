@@ -1,6 +1,6 @@
 # 实现计划
 
-> **当前基线：`main`**（已合并读/写/TDD/语义编码/复合图/Viewer）。
+> **当前基线：`main`** · 工作流见 [07-workflow.md](./07-workflow.md)（已合并读/写/TDD/语义编码/复合图/Viewer）。
 
 阶段 0：准备
 
@@ -76,7 +76,7 @@
 |------|------|
 | [x] `appendPixelLayer` / `removePixelLayer` | DocumentEditTests |
 | [x] 修改 opacity + `markContentModified` | DocumentEditTests |
-| 修改 `frame` + 像素 | bounds 与像素一致 |
+| [x] offset fixture 语义往返 | `testLayerOffsetBoundsSemanticRoundTrip` |
 | 未知 Tagged Block passthrough | 含 `lfx2` 的 fixture 写后 PS 仍显示样式 |
 
 ---
@@ -89,8 +89,8 @@
 |------|------|
 | [x] 打开/保存 | `Apps/PSDViewer` |
 | [x] 图层列表 + 合成预览 | CompositeBuilder |
-| 增删改 UI | 操作后保存，PS 再打开正确 |
-| 错误提示 | 非 8-bit 文件友好报错 |
+| [~] 增删改 UI | Viewer：Add/Remove 图层（macOS） |
+| [x] 错误提示 | `PSDError.userMessage` + Viewer |
 
 ---
 
