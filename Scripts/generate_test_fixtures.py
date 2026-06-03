@@ -173,11 +173,19 @@ def manifest_entry(spec: DocSpec, path: Path) -> dict[str, Any]:
     }
 
 
+SEMANTIC_WRITE_IDS = frozenset({
+    "single-rle-8x8", "single-raw-8x8", "canvas-1x1",
+    "single-rgba-rle-16x16", "mixed-compression",
+})
+
+
 def all_specs() -> list[DocSpec]:
     """Coverage matrix for v1: 8-bit RGB bitmap layers without layer styles."""
     specs: list[DocSpec] = []
 
     def add(spec: DocSpec) -> None:
+        if spec.id in SEMANTIC_WRITE_IDS:
+            spec.v1_write_roundtrip = "semantic"
         specs.append(spec)
 
     # --- single layer ---

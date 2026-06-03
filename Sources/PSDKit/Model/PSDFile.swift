@@ -30,7 +30,10 @@ struct PSDFile: Sendable {
         )
     }
 
-    func write() throws -> Data {
-        sourceData
+    func write(passthrough: Bool = true) throws -> Data {
+        if passthrough, !sourceData.isEmpty {
+            return sourceData
+        }
+        return try PSDWriter.serialize(self)
     }
 }

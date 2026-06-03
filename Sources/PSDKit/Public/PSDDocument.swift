@@ -1,5 +1,12 @@
 import Foundation
 
+public enum PSDWriteMode: Sendable {
+    /// Return original bytes when loaded from disk (default).
+    case passthrough
+    /// Re-encode layer/mask and image sections from the in-memory model.
+    case semantic
+}
+
 public final class PSDDocument: @unchecked Sendable {
     public let canvasSize: PSDSize
     public let colorMode: ColorMode
@@ -26,11 +33,17 @@ public final class PSDDocument: @unchecked Sendable {
         return try load(data: data)
     }
 
-    public func data() throws -> Data {
-        try rawFile.write()
+    public func data(writeMode: PSDWriteMode = .passthrough) throws -> Data {
+        switch writeMode {
+        case .passthrough:
+            return try rawFile.write(passthrough: true)
+        case .semantic:
+            let synced = try DocumentBuilder.syncRawFile(from: self)
+            return try synced.write(passthrough: false)
+        }
     }
 
-    public func save(to url: URL) throws {
-        try data().write(to: url, options: .atomic)
+    public func save(to url: URL, writeMode: PSDWriteMode = .passthrough) throws {
+        try data(writeMode: writeMode).write(to: url, options: .atomic)
     }
 }

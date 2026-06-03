@@ -73,8 +73,8 @@ Tests/PSDKitTests/
 
 | 阶段 | `v1_write_roundtrip` | 测试 |
 |------|----------------------|------|
-| 当前 | `passthrough` | `testPassthroughRoundTripBytes` — 原样写回 |
-| 下一步 | `semantic` | 重建 Layer 段后像素/元数据仍匹配 golden |
+| `passthrough`（默认） | `testPassthroughRoundTripBytes` — 原样写回 |
+| `semantic` | `testSemanticWriteRebuildsPixels` — 重建 Layer 段后像素/元数据仍匹配 golden（5 个 fixture） |
 
 在 `generate_test_fixtures.py` 中为 fixture 设置 `v1_write_roundtrip="semantic"` 即可启用 `GoldenWriteTests.testSemanticWriteRebuildsPixels`。
 

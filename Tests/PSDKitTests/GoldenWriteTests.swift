@@ -11,13 +11,13 @@ final class GoldenWriteTests: XCTestCase {
 
     func testPassthroughRoundTripBytes() throws {
         let passthrough = manifest.fixtures.filter { $0.v1WriteRoundtrip == "passthrough" }
-        XCTAssertGreaterThanOrEqual(passthrough.count, 10)
+        XCTAssertGreaterThanOrEqual(passthrough.count, 5)
 
         for entry in passthrough {
             let url = GoldenLoader.fixtureURL(for: entry)
             let original = try Data(contentsOf: url)
             let doc = try PSDDocument.load(url: url)
-            let out = try doc.data()
+            let out = try doc.data(writeMode: .passthrough)
             XCTAssertEqual(out, original, entry.id)
             XCTAssertEqual(out.count, entry.fileSize, entry.id)
         }
@@ -29,7 +29,7 @@ final class GoldenWriteTests: XCTestCase {
             let doc1 = try PSDDocument.load(url: url)
             let temp = FileManager.default.temporaryDirectory
                 .appendingPathComponent("psdkit-\(entry.id).psd")
-            try doc1.save(to: temp)
+            try doc1.save(to: temp, writeMode: .passthrough)
             let doc2 = try PSDDocument.load(url: temp)
             XCTAssertEqual(doc2.canvasSize.width, entry.header.width, entry.id)
             XCTAssertEqual(
@@ -43,15 +43,21 @@ final class GoldenWriteTests: XCTestCase {
 
     func testSemanticWriteRebuildsPixels() throws {
         let semantic = manifest.fixtures.filter { $0.v1WriteRoundtrip == "semantic" }
-        guard !semantic.isEmpty else {
-            throw XCTSkip("No semantic round-trip fixtures yet")
-        }
-        for entry in semantic {
-            XCTFail("Implement semantic writer for \(entry.id)")
+        XCTAssertFalse(semantic.isEmpty, "Add semantic fixtures in generate_test_fixtures.py")
+
+        for entry in semantic where entry.v1ReadSupported {
+            let url = GoldenLoader.fixtureURL(for: entry)
+            let doc = try PSDDocument.load(url: url)
+            let temp = FileManager.default.temporaryDirectory
+                .appendingPathComponent("psdkit-semantic-\(entry.id).psd")
+            try doc.save(to: temp, writeMode: .semantic)
+            let reloaded = try PSDDocument.load(url: temp)
+            try GoldenAssertions.assertDocumentMatchesGolden(reloaded, entry: entry)
+            try? FileManager.default.removeItem(at: temp)
         }
     }
 
     func testSemanticWritePhotoshopCompatible() throws {
-        throw XCTSkip("Manual PS validation — enable after semantic writer")
+        throw XCTSkip("Manual PS validation — enable after semantic writer stabilizes")
     }
 }

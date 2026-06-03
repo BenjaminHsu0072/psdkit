@@ -44,6 +44,8 @@ struct LayerRecord: Equatable, Sendable {
     var extraData: Data
     /// Decompressed planar channels keyed by channel id.
     var channelData: [Int16: Data]
+    /// Compression mode per channel (filled during read).
+    var channelCompressions: [Int16: Compression]
 
     var bounds: PSDRect {
         PSDRect(left: left, top: top, right: right, bottom: bottom)
@@ -109,7 +111,8 @@ struct LayerRecord: Equatable, Sendable {
             flags: flags,
             name: name,
             extraData: extraData,
-            channelData: [:]
+            channelData: [:],
+            channelCompressions: [:]
         )
     }
 
@@ -118,6 +121,7 @@ struct LayerRecord: Equatable, Sendable {
             throw PSDError.corruptStructure("channel payload count mismatch")
         }
         channelData = [:]
+        channelCompressions = [:]
         for (info, payload) in zip(channelInfo, payloads) {
             guard info.length > 2 else { continue }
             var pr = BinaryReader(data: payload)
@@ -125,6 +129,7 @@ struct LayerRecord: Equatable, Sendable {
             guard let compression = Compression(rawValue: compressionRaw) else {
                 throw PSDError.unsupportedCompression(compressionRaw)
             }
+            channelCompressions[info.id] = compression
             let compressed = try pr.readBytes(payload.count - 2)
             let w: Int
             let h: Int

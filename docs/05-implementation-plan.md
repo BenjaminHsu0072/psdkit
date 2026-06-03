@@ -13,7 +13,7 @@
 - [x] `Scripts/generate_test_fixtures.py` — psd-tools 生成 PSD + manifest + rgba golden
 - [x] `GoldenReadTests` / `GoldenWriteTests` / `RejectionTests` / `PackBitsGoldenTests`
 - [x] 覆盖矩阵 13 正向 + 4 负向（见 [06-testing.md](./06-testing.md)）
-- [ ] 增加 `semantic` 写往返 fixture（待写编码完成后）
+- [x] 增加 `semantic` 写往返 fixture（5 个，见 `SEMANTIC_WRITE_IDS`）
 
 ---
 
@@ -48,7 +48,7 @@
 
 ---
 
-## 阶段 3：写路径（passthrough 暂存）
+## 阶段 3：写路径（进行中）
 
 **目标**：从内存模型写出 Photoshop 可打开的 PSD。
 
@@ -58,7 +58,9 @@
 | Channel image data 写入 | RLE 或 Raw |
 | 更新 channel length 字段 | psd-tools `_update_channel_length` 同理 |
 | 复合 Image Data | 简单 alpha 合成或占位图 |
-| [~] `PSDDocument.save` | 当前为 `sourceData` 透传；完整编码待实现 |
+| [x] `PSDDocument.save` passthrough | 默认 `writeMode: .passthrough` |
+| [~] `PSDDocument.save` semantic | `PSDWriter` 重建 Layer/Mask；5 个 golden 通过 |
+| [ ] 全部 fixture semantic 往返 | 多层/offset/unicode 等逐步纳入 |
 
 **参考**：psd-tools write 路径、ag-psd `writePsdBuffer`
 

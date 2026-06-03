@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-06-03T04:04:00.062292+00:00",
+  "generated_at": "2026-06-03T04:14:06.068383+00:00",
   "generator": "Scripts/generate_test_fixtures.py",
   "reference": "psd-tools",
   "fixtures": [
@@ -14,7 +14,7 @@
         "8x8"
       ],
       "v1_read_supported": true,
-      "v1_write_roundtrip": "passthrough",
+      "v1_write_roundtrip": "semantic",
       "file_sha256": "e16cfbafbd85282e2069f085f22719a99c659d7aa040ef4054a3854e453452e7",
       "file_size": 650,
       "header": {
@@ -59,7 +59,7 @@
         "8x8"
       ],
       "v1_read_supported": true,
-      "v1_write_roundtrip": "passthrough",
+      "v1_write_roundtrip": "semantic",
       "file_sha256": "566bc144e0687747672d8d24a7bd7cbd1ac50792d2536f181e249cae9d8dcfcc",
       "file_size": 810,
       "header": {
@@ -105,7 +105,7 @@
         "16x16"
       ],
       "v1_read_supported": true,
-      "v1_write_roundtrip": "passthrough",
+      "v1_write_roundtrip": "semantic",
       "file_sha256": "015eba2f2e017ab6589fdd8ed351abaa67760e80cb620b7dfc78475ab87d75f5",
       "file_size": 1382,
       "header": {
@@ -149,7 +149,7 @@
         "1x1"
       ],
       "v1_read_supported": true,
-      "v1_write_roundtrip": "passthrough",
+      "v1_write_roundtrip": "semantic",
       "file_sha256": "05b5a3e96138605236625859878cf5e5dd51bc087c1e8d6a1fa5b2c175136ba1",
       "file_size": 313,
       "header": {
@@ -384,7 +384,7 @@
         "rle"
       ],
       "v1_read_supported": true,
-      "v1_write_roundtrip": "passthrough",
+      "v1_write_roundtrip": "semantic",
       "file_sha256": "40b9af210c9bac0ae8e7895f3a208db110fff4b7a6898660ea86ec9437c1a618",
       "file_size": 1766,
       "header": {
