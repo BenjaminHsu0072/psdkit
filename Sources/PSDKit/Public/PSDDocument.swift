@@ -51,6 +51,17 @@ public final class PSDDocument: @unchecked Sendable {
 
     // MARK: - Layer editing (phase 4)
 
+    /// Call after mutating layer properties in place.
+    /// Merged canvas preview (RGBA8888) using normal blend, bottom-to-top.
+    public func compositePreviewRGBA() -> Data {
+        let layers = root.children.compactMap { $0 as? PixelLayer }
+        return CompositeBuilder.compositeRGBA(canvasSize: canvasSize, layers: layers)
+    }
+
+    public func markContentModified() {
+        isContentDirty = true
+    }
+
     public func appendPixelLayer(_ layer: PixelLayer) throws {
         root.append(layer)
         var file = rawFile

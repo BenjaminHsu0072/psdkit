@@ -51,6 +51,14 @@ enum DocumentBuilder {
             pixelRecords: updatedLayers
         )
         file.layerAndMask.layerInfo = layerInfo
+        let pixelLayers = document.root.children.compactMap { $0 as? PixelLayer }
+        file.imageData = try CompositeBuilder.buildImageData(
+            canvasSize: document.canvasSize,
+            layers: pixelLayers,
+            compression: file.imageData.compression,
+            depth: Int(file.header.depth),
+            psdVersion: Int(file.header.version)
+        )
         return file
     }
 

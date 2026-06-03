@@ -39,6 +39,23 @@ final class DocumentEditTests: XCTestCase {
         XCTAssertEqual(reloaded.root.children.compactMap { $0 as? PixelLayer }.count, 1)
     }
 
+    func testOpacityRoundTrip() throws {
+        let url = try fixtureURL("layer-opacity-50.psd")
+        let doc = try PSDDocument.load(url: url)
+        guard let layer = doc.root.children.first as? PixelLayer else {
+            XCTFail("missing layer")
+            return
+        }
+        XCTAssertEqual(layer.opacity, 128)
+        layer.opacity = 200
+        doc.markContentModified()
+        let temp = FileManager.default.temporaryDirectory.appendingPathComponent("opacity-edit.psd")
+        try doc.save(to: temp)
+        let reloaded = try PSDDocument.load(url: temp)
+        XCTAssertEqual((reloaded.root.children.first as? PixelLayer)?.opacity, 200)
+        try? FileManager.default.removeItem(at: temp)
+    }
+
     func testUnicodeLayerNameRoundTrip() throws {
         let url = try fixtureURL("layer-name-unicode.psd")
         let doc = try PSDDocument.load(url: url)

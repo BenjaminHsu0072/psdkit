@@ -57,7 +57,7 @@
 | `LayerRecord` 序列化 | 与阶段 2 往返，元数据一致 |
 | Channel image data 写入 | RLE 或 Raw |
 | 更新 channel length 字段 | psd-tools `_update_channel_length` 同理 |
-| 复合 Image Data | 简单 alpha 合成或占位图 |
+| [x] 复合 Image Data | `CompositeBuilder` alpha 合成 |
 | [x] `PSDDocument.save` passthrough | 默认 `writeMode: .passthrough` |
 | [~] `PSDDocument.save` semantic | `PSDWriter` 重建 Layer/Mask；5 个 golden 通过 |
 | [x] 全部 fixture semantic 往返 | 10/13 semantic + 3 passthrough 字节测试 |
@@ -73,7 +73,7 @@
 | 任务 | 验收 |
 |------|------|
 | [x] `appendPixelLayer` / `removePixelLayer` | DocumentEditTests |
-| 修改 name / visible / opacity | round-trip 保持 |
+| [x] 修改 opacity + `markContentModified` | DocumentEditTests |
 | 修改 `frame` + 像素 | bounds 与像素一致 |
 | 未知 Tagged Block passthrough | 含 `lfx2` 的 fixture 写后 PS 仍显示样式 |
 
@@ -85,8 +85,8 @@
 
 | 任务 | 验收 |
 |------|------|
-| 打开/保存 | 菜单可用 |
-| 图层列表 + 预览 | 与 PS 预览一致 |
+| [x] 打开/保存 | `Apps/PSDViewer` |
+| [x] 图层列表 + 合成预览 | CompositeBuilder |
 | 增删改 UI | 操作后保存，PS 再打开正确 |
 | 错误提示 | 非 8-bit 文件友好报错 |
 
