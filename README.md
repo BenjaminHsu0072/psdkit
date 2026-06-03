@@ -1,5 +1,41 @@
 # PSDKit
 
-用 Swift 读写 Adobe Photoshop **PSD** 文件的库（设计阶段）。
+Swift 库：读写 **8-bit RGB(A) 位图图层** PSD 文件（首版）。
 
-> 完整文档见 [`docs/`](./docs/)，**跨语言参考全景**见 [docs/01-landscape.md](./docs/01-landscape.md)。
+## 状态
+
+- [x] 设计文档（[`docs/`](./docs/)）
+- [x] 核心读路径：`PSDDocument.load`、图层像素、`PackBits` RLE
+- [ ] 完整写编码（当前 `save` 为读入字节透传）
+- [ ] macOS Viewer
+
+## 快速开始
+
+```swift
+import PSDKit
+
+let doc = try PSDDocument.load(url: URL(fileURLWithPath: "sample.psd"))
+for case let layer as PixelLayer in doc.root.children {
+    print(layer.name, layer.frame, layer.pixels.rgba.count)
+}
+```
+
+## 构建与测试
+
+```bash
+swift build
+swift test
+```
+
+测试 fixture 由 [Scripts/generate_fixtures.py](./Scripts/generate_fixtures.py) 生成（依赖 `psd-tools`）。
+
+## 参考实现
+
+见 [docs/01-landscape.md](./docs/01-landscape.md) 与 [docs/REFERENCES.md](./docs/REFERENCES.md)。
+
+## 文档
+
+| 文档 | 说明 |
+|------|------|
+| [docs/01-landscape.md](./docs/01-landscape.md) | 跨语言参考全景 |
+| [docs/05-implementation-plan.md](./docs/05-implementation-plan.md) | 实现计划与进度 |

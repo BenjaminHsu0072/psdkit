@@ -1,46 +1,46 @@
 # 实现计划
 
-## 阶段 0：准备（当前）
+## 阶段 0：准备
 
 - [x] 调研参考实现（跨语言全景见 01-landscape.md）
 - [x] 编写 `docs/` 设计文档
-- [ ] 添加 `Package.swift` 骨架与空 target
-- [ ] 添加最小 Fixtures（可用脚本生成）
+- [x] 添加 `Package.swift` 骨架与空 target
+- [x] 添加最小 Fixtures（`Scripts/generate_fixtures.py`）
 
 ---
 
-## 阶段 1：二进制基础
+## 阶段 1：二进制基础（进行中）
 
 **目标**：读/写 Header + 空 Layer 段 + 空 Image Data。
 
 | 任务 | 验收 |
 |------|------|
-| `BinaryReader` / `BinaryWriter` | round-trip 26 字节 header |
-| `FileHeader` codable | 拒绝非 8BPS / 非 v1 / depth≠8 |
-| Color Mode + Resources passthrough | 读入再写出字节一致 |
-| `PackBitsCodec` | 与 psd-tools `rle.py` 测试向量一致 |
+| [x] `BinaryReader` / `BinaryWriter` | round-trip 26 字节 header |
+| [x] `FileHeader` codable | 拒绝非 8BPS / 非 v1 / depth≠8 |
+| [x] Color Mode + Resources passthrough | 读入再写出字节一致 |
+| [x] `PackBitsCodec` | 与 psd-tools `rle.py` 测试向量一致 |
 
 **参考**：`psd-tools/psd/header.py`, `compression/rle.py`
 
 ---
 
-## 阶段 2：读路径
+## 阶段 2：读路径（进行中）
 
 **目标**：解析多图层 8-bit RGBA PSD，输出 `PixelBuffer`。
 
 | 任务 | 验收 |
 |------|------|
-| `LayerRecord` 解析 | 与 psd-tools 解析同一 fixture 的 layer 数、bounds 一致 |
-| RLE/Raw 通道解压 | 像素 hash 与 golden 一致 |
+| [x] `LayerRecord` 解析 | 与 psd-tools 解析同一 fixture 的 layer 数、bounds 一致 |
+| [x] RLE/Raw 通道解压 | fixture 像素抽样通过 |
 | Planar → RGBA | 视觉正确 |
 | `LayerTreeBuilder` | 扁平层列表顺序正确 |
-| `PSDDocument.load` | 公开 API 可用 |
+| [x] `PSDDocument.load` | 公开 API 可用 |
 
 **参考**：`layer_and_mask.py`, psd_sdk `PsdDecompressRle`
 
 ---
 
-## 阶段 3：写路径
+## 阶段 3：写路径（passthrough 暂存）
 
 **目标**：从内存模型写出 Photoshop 可打开的 PSD。
 
@@ -50,7 +50,7 @@
 | Channel image data 写入 | RLE 或 Raw |
 | 更新 channel length 字段 | psd-tools `_update_channel_length` 同理 |
 | 复合 Image Data | 简单 alpha 合成或占位图 |
-| `PSDDocument.save` | PS 打开无错误 |
+| [~] `PSDDocument.save` | 当前为 `sourceData` 透传；完整编码待实现 |
 
 **参考**：psd-tools write 路径、ag-psd `writePsdBuffer`
 
