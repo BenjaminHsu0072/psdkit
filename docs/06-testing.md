@@ -52,6 +52,20 @@ Tests/PSDKitTests/
 | `reject-depth-16` | `unsupportedBitDepth` |
 | `reject-cmyk` | `unsupportedColorMode` |
 
+内存 patch 负向（不新增 binary fixture）：`RejectionTests.testUnsupportedCompressionThrows` 将 golden PSD 的图层通道或 composite image data 压缩码改为 Zip / 未知值，期望 `unsupportedCompression`。
+
+## 中期（M6）测试入口
+
+| 场景 | 命令 / 套件 |
+|------|-------------|
+| 全量单元测试 | 仓库根目录 `swift test` |
+| 兼容报告 + 拒绝 | `swift test --filter 'CompatibilityReportTests|RejectionTests'` |
+| 性能 fixture 工厂 | `swift test --filter PerformanceFixtureFactoryTests` |
+| 性能基准 CLI | `swift run -c release PSDKitBenchmark --preset small --warmup 1 --iterations 5 --output Benchmarks/Reports/m6-release-small.json`（三档报告输出 `Benchmarks/Reports/`） |
+| Viewer 单元测试 | `cd Apps/PSDViewer && swift test` |
+
+Viewer 侧 `DocumentModelCompatibilityTests` 覆盖打开有损 PSD 时的兼容提示文案（`compatibilityWarningMessage` / `compatibilitySummary`）。
+
 ## 测试套件说明
 
 | 套件 | 作用 |
@@ -59,6 +73,11 @@ Tests/PSDKitTests/
 | **GoldenReadTests** | 对照 `manifest.json` + `Golden/rgba/*.rgba` 验证读路径 |
 | **GoldenWriteTests** | `passthrough` 字节往返；`semantic` 占位（实现写编码后启用） |
 | **RejectionTests** | 非法文件必须抛出对应错误 |
+| **CompatibilityReportTests** | 有损导入时 `PSDCompatibilityReport` 警告（mask、effects、text/adjustment/smart object 丢弃、blend mode 降级等） |
+| **BlendModeTests** | 支持的三种 pixel blend mode（Normal / Multiply / Add）读写 |
+| **LayerTreeBuilderTests** / **LayerTreeTests** | 嵌套 `lsct` 组边界与树构建 |
+| **PersistenceRoundTripTests** | 语义写回与 midterm 标准文档往返 |
+| **PerformanceFixtureFactoryTests** | 性能基准 fixture 工厂（见 `Benchmarks/`） |
 | **PackBitsGoldenTests** | PackBits 与 psd-tools 参考编码一致 |
 | **PackBitsTests** | 本地 round-trip |
 | **PassthroughTests** | 单文件字节级透传 smoke |

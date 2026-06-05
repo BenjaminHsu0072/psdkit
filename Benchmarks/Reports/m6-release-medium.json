@@ -1,0 +1,45 @@
+{
+  "report" : {
+    "environment" : {
+      "buildConfiguration" : "release",
+      "hardware" : "Mac16,10, 10 logical CPUs, 16.0 GB RAM",
+      "measuredIterations" : 5,
+      "osVersion" : "Version 26.3.1 (a) (Build 25D771280a)",
+      "peakMemoryNote" : "mach_task_basic_info.resident_size max sampled around each measured iteration",
+      "physicalMemoryBytes" : 17179869184,
+      "statistics" : "P50, P95, min, max over measured iterations (linear interpolation)",
+      "swiftVersion" : "swift-driver version: 1.127.15 Apple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2) Target: arm64-apple-macosx26.0",
+      "warmupIterations" : 1
+    },
+    "fixture" : {
+      "canvasHeight" : 2048,
+      "canvasWidth" : 2048,
+      "pixelLayerCount" : 50,
+      "preset" : "medium"
+    },
+    "generatedAt" : "2026-06-04T18:41:29Z",
+    "metrics" : {
+      "composite" : {
+        "maxSeconds" : 0.06924092769622803,
+        "minSeconds" : 0.05719292163848877,
+        "p50Seconds" : 0.05794799327850342,
+        "p95Seconds" : 0.0670417308807373
+      },
+      "fileSizeBytes" : 17072060,
+      "load" : {
+        "maxSeconds" : 0.01973700523376465,
+        "minSeconds" : 0.015097975730895996,
+        "p50Seconds" : 0.015738964080810547,
+        "p95Seconds" : 0.018990993499755856
+      },
+      "peakMemoryBytes" : 419987456,
+      "semanticSave" : {
+        "maxSeconds" : 0.24484097957611084,
+        "minSeconds" : 0.23209905624389648,
+        "p50Seconds" : 0.23222994804382324,
+        "p95Seconds" : 0.2435513973236084
+      }
+    },
+    "preset" : "medium"
+  }
+}

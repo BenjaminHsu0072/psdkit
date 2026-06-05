@@ -3,13 +3,6 @@ import Foundation
 import PSDKit
 import SwiftUI
 
-struct LayerListItem: Identifiable, Equatable {
-    let id: Int
-    let name: String
-    let isVisible: Bool
-    let opacity: UInt8
-}
-
 @MainActor
 final class DocumentModel: ObservableObject {
     @Published private(set) var document: PSDDocument?
@@ -17,27 +10,44 @@ final class DocumentModel: ObservableObject {
     @Published private(set) var previewImage: NSImage?
     @Published private(set) var statusMessage = "Open a PSD file to begin."
     @Published private(set) var errorMessage: String?
-    @Published var selectedLayerIndex: Int?
+    /// Shown when `compatibilityReport` indicates lossy import (session-only; not saved to PSD).
+    @Published private(set) var compatibilityWarningMessage: String?
+    /// Layer path selection id for sidebar `List` (e.g. `"0"`, `"1/0"`).
+    @Published var selectedLayerID: String?
     /// Bumped when layer metadata changes so SwiftUI refreshes the sidebar.
     @Published private(set) var documentRevision = 0
 
     var layerItems: [LayerListItem] {
         guard let document else { return [] }
-        return document.root.children.enumerated().map { index, layer in
-            LayerListItem(
-                id: index,
-                name: layer.name,
-                isVisible: layer.isVisible,
-                opacity: layer.opacity
-            )
-        }
+        return LayerListFlattener.flatten(root: document.root)
+    }
+
+    var selectedLayerPath: LayerPath? {
+        guard let selectedLayerID else { return nil }
+        return LayerPath(selectionID: selectedLayerID)
+    }
+
+    var selectedLayer: (any LayerProtocol)? {
+        guard let document, let path = selectedLayerPath else { return nil }
+        return LayerListFlattener.resolveLayer(in: document.root, path: path)
     }
 
     var selectedPixelLayer: PixelLayer? {
-        guard let document, let index = selectedLayerIndex,
-              index >= 0, index < document.root.children.count
-        else { return nil }
-        return document.root.children[index] as? PixelLayer
+        selectedLayer as? PixelLayer
+    }
+
+    var selectedLayerEditPolicy: LayerViewerEditPolicy? {
+        guard let path = selectedLayerPath, let layer = selectedLayer else { return nil }
+        return LayerViewerPolicy.editPolicy(path: path, layer: layer)
+    }
+
+    var canEditSelectedLayerInInspector: Bool {
+        selectedLayerEditPolicy?.isEditable == true
+    }
+
+    /// Root-level pixel layer only (matches `removePixelLayer` persistence).
+    var canRemoveSelectedLayer: Bool {
+        canEditSelectedLayerInInspector
     }
 
     func newDocument(width: Int = 256, height: Int = 256) {
@@ -45,8 +55,9 @@ final class DocumentModel: ObservableObject {
             let doc = try PSDDocument.create(width: width, height: height)
             document = doc
             fileURL = nil
-            selectedLayerIndex = nil
+            selectedLayerID = nil
             errorMessage = nil
+            compatibilityWarningMessage = nil
             statusMessage = "New document \(width)×\(height)"
             bumpDocument()
             refreshPreview()
@@ -73,8 +84,9 @@ final class DocumentModel: ObservableObject {
             let doc = try PSDDocument.load(url: url)
             document = doc
             fileURL = url
-            selectedLayerIndex = doc.root.children.isEmpty ? nil : 0
+            selectedLayerID = LayerListFlattener.flatten(root: doc.root).first?.id
             errorMessage = nil
+            compatibilityWarningMessage = Self.compatibilitySummary(from: doc.compatibilityReport)
             statusMessage = "Loaded \(url.lastPathComponent) — \(doc.root.children.count) layer(s)"
             bumpDocument()
             refreshPreview()
@@ -82,14 +94,16 @@ final class DocumentModel: ObservableObject {
             document = nil
             fileURL = nil
             previewImage = nil
-            selectedLayerIndex = nil
+            selectedLayerID = nil
+            compatibilityWarningMessage = nil
             errorMessage = error.userMessage
             statusMessage = "Failed to open file."
         } catch {
             document = nil
             fileURL = nil
             previewImage = nil
-            selectedLayerIndex = nil
+            selectedLayerID = nil
+            compatibilityWarningMessage = nil
             errorMessage = error.localizedDescription
             statusMessage = "Failed to open file."
         }
@@ -152,27 +166,37 @@ final class DocumentModel: ObservableObject {
         }
     }
 
-    func toggleLayerVisibility(at index: Int) {
-        guard let document, index >= 0, index < document.root.children.count else { return }
-        let layer = document.root.children[index]
+    func toggleLayerVisibility(at path: LayerPath) {
+        guard let item = layerItems.first(where: { $0.path == path }) else { return }
+        guard LayerViewerPolicy.canToggleVisibility(for: item) else {
+            statusMessage = "仅支持切换根级像素层的可见性。"
+            return
+        }
+        guard let document,
+              let layer = LayerListFlattener.resolveLayer(in: document.root, path: path)
+        else { return }
         layer.isVisible.toggle()
         markDirty()
         statusMessage = "\(layer.name) visibility: \(layer.isVisible ? "on" : "off")"
     }
 
-    func renameLayer(at index: Int, to name: String) {
-        guard let document, index >= 0, index < document.root.children.count else { return }
+    func renameLayer(at path: LayerPath, to name: String) {
+        guard let document,
+              let layer = LayerListFlattener.resolveLayer(in: document.root, path: path) as? PixelLayer,
+              LayerViewerPolicy.editPolicy(path: path, layer: layer) == .editableRootPixel
+        else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        let layer = document.root.children[index]
         layer.name = trimmed
         markDirty()
         statusMessage = "Renamed layer to \"\(trimmed)\""
     }
 
-    func setLayerOpacity(at index: Int, opacity: UInt8) {
-        guard let document, index >= 0, index < document.root.children.count else { return }
-        let layer = document.root.children[index]
+    func setLayerOpacity(at path: LayerPath, opacity: UInt8) {
+        guard let document,
+              let layer = LayerListFlattener.resolveLayer(in: document.root, path: path) as? PixelLayer,
+              LayerViewerPolicy.editPolicy(path: path, layer: layer) == .editableRootPixel
+        else { return }
         layer.opacity = opacity
         markDirty()
         statusMessage = "\(layer.name) opacity: \(opacity)"
@@ -197,7 +221,7 @@ final class DocumentModel: ObservableObject {
                 pixels: PixelBuffer(width: width, height: height, rgba: rgba)
             )
             try document.appendPixelLayer(layer)
-            selectedLayerIndex = document.root.children.count - 1
+            selectedLayerID = LayerPath(indices: [document.root.children.count - 1]).selectionID
             markDirty()
             statusMessage = "Imported \(url.lastPathComponent) (\(width)×\(height))"
             errorMessage = nil
@@ -228,7 +252,7 @@ final class DocumentModel: ObservableObject {
                 pixels: PixelBuffer(width: w, height: h, rgba: rgba)
             )
             try document.appendPixelLayer(layer)
-            selectedLayerIndex = document.root.children.count - 1
+            selectedLayerID = LayerPath(indices: [document.root.children.count - 1]).selectionID
             markDirty()
             statusMessage = "Added \(layer.name)"
             errorMessage = nil
@@ -240,19 +264,22 @@ final class DocumentModel: ObservableObject {
     }
 
     func removeSelectedLayer() {
-        guard let document, let index = selectedLayerIndex,
-              index >= 0, index < document.root.children.count,
-              let layer = document.root.children[index] as? PixelLayer
+        guard let document, let layer = selectedPixelLayer,
+              let path = selectedLayerPath, path.indices.count == 1
         else {
-            statusMessage = "Select a pixel layer to remove."
+            statusMessage = selectedLayer is GroupLayer
+                ? "Select a root pixel layer to remove."
+                : "Select a pixel layer to remove."
             return
         }
         do {
             let name = layer.name
             try document.removePixelLayer(layer)
-            selectedLayerIndex = document.root.children.isEmpty
+            let removedIndex = path.indices[0]
+            let newCount = document.root.children.count
+            selectedLayerID = newCount == 0
                 ? nil
-                : min(index, document.root.children.count - 1)
+                : LayerPath(indices: [min(removedIndex, newCount - 1)]).selectionID
             markDirty()
             statusMessage = "Removed \(name)"
             errorMessage = nil
@@ -271,5 +298,18 @@ final class DocumentModel: ObservableObject {
 
     private func bumpDocument() {
         documentRevision += 1
+    }
+
+    /// User-facing summary for Viewer; `nil` when the opened PSD is fully within the supported subset.
+    static func compatibilitySummary(from report: PSDCompatibilityReport) -> String? {
+        guard report.hasLossyChanges || !report.issues.isEmpty else { return nil }
+        var text = "部分 PSD 特性不受支持，已降级、忽略或丢弃。"
+        let count = report.issues.count
+        if count > 1 {
+            text += "（\(count) 项警告）"
+        } else if count == 1, let first = report.issues.first {
+            text += " \(first.message)"
+        }
+        return text
     }
 }

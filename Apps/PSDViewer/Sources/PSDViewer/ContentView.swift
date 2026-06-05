@@ -36,7 +36,7 @@ struct ContentView: View {
                 } label: {
                     Label("Remove", systemImage: "minus.square")
                 }
-                .disabled(model.document == nil || model.selectedLayerIndex == nil)
+                .disabled(model.document == nil || !model.canRemoveSelectedLayer)
             }
         }
     }
@@ -51,27 +51,47 @@ struct ContentView: View {
     }
 
     private var layerList: some View {
-        List(selection: $model.selectedLayerIndex) {
+        List(selection: $model.selectedLayerID) {
             if model.layerItems.isEmpty {
                 Text("No document")
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(model.layerItems) { item in
-                    HStack {
+                    HStack(spacing: 6) {
                         Button {
-                            model.toggleLayerVisibility(at: item.id)
+                            model.toggleLayerVisibility(at: item.path)
                         } label: {
                             Image(systemName: item.isVisible ? "eye" : "eye.slash")
                         }
                         .buttonStyle(.borderless)
+                        .disabled(!LayerViewerPolicy.canToggleVisibility(for: item))
+                        .help(LayerViewerPolicy.canToggleVisibility(for: item)
+                            ? "Toggle visibility"
+                            : "仅根级像素层可切换可见性")
+
+                        Image(systemName: item.displayKind == .group ? "folder.fill" : "square.stack.3d.up.fill")
+                            .foregroundStyle(item.displayKind == .group ? .secondary : .primary)
+                            .font(.caption)
+                            .frame(width: 14)
+
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(item.name)
-                                .lineLimit(1)
-                            Text("Opacity \(Int(item.opacity))")
+                            HStack(spacing: 4) {
+                                Text(item.name)
+                                    .lineLimit(1)
+                                if item.displayKind == .group {
+                                    Text("组")
+                                        .font(.caption2)
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(.quaternary, in: Capsule())
+                                }
+                            }
+                            Text(layerSubtitle(for: item))
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .padding(.leading, CGFloat(item.depth) * 14)
                     .tag(item.id)
                 }
             }
@@ -81,12 +101,22 @@ struct ContentView: View {
         .id(model.documentRevision)
     }
 
+    private func layerSubtitle(for item: LayerListItem) -> String {
+        switch item.displayKind {
+        case .group:
+            let count = item.childCount ?? 0
+            return count == 0 ? "Group · empty" : "Group · \(count) layer\(count == 1 ? "" : "s")"
+        case .pixel:
+            return "Opacity \(Int(item.opacity))"
+        }
+    }
+
     private var layerInspector: some View {
         Group {
-            if let index = model.selectedLayerIndex {
-                LayerInspectorView(layerIndex: index)
+            if model.selectedLayerPath != nil {
+                LayerInspectorView()
             } else {
-                Text("Select a layer to edit name and opacity.")
+                Text("Select a layer to view properties.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .padding()
@@ -103,6 +133,12 @@ struct ContentView: View {
                     .foregroundStyle(.red)
                     .font(.callout)
             }
+            if let warning = model.compatibilityWarningMessage {
+                Label(warning, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Text(model.statusMessage)
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -115,11 +151,17 @@ struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ContentUnavailableView(
-                    "No Preview",
-                    systemImage: "photo",
-                    description: Text("Open an 8-bit RGB PSD file.")
-                )
+                VStack(spacing: 8) {
+                    Image(systemName: "photo")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
+                    Text("No Preview")
+                        .font(.headline)
+                    Text("Open an 8-bit RGB PSD file.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .padding()

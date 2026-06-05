@@ -11,17 +11,25 @@ public final class PSDDocument: @unchecked Sendable {
     public let canvasSize: PSDSize
     public let colorMode: ColorMode
     public let root: GroupLayer
+    public let compatibilityReport: PSDCompatibilityReport
 
     var rawFile: PSDFile
     private(set) var isContentDirty = false
 
     public var layers: GroupLayer { root }
 
-    init(canvasSize: PSDSize, colorMode: ColorMode, root: GroupLayer, rawFile: PSDFile) {
+    init(
+        canvasSize: PSDSize,
+        colorMode: ColorMode,
+        root: GroupLayer,
+        rawFile: PSDFile,
+        compatibilityReport: PSDCompatibilityReport = .empty
+    ) {
         self.canvasSize = canvasSize
         self.colorMode = colorMode
         self.root = root
         self.rawFile = rawFile
+        self.compatibilityReport = compatibilityReport
     }
 
 
@@ -55,6 +63,40 @@ public final class PSDDocument: @unchecked Sendable {
 
     public static func create(width: Int, height: Int, layers: [PixelLayer] = []) throws -> PSDDocument {
         try create(canvasSize: PSDSize(width: width, height: height), layers: layers)
+    }
+
+    /// Creates a new document from an in-memory layer tree. Requires semantic save before sharing.
+    public static func create(
+        canvasSize: PSDSize,
+        root: GroupLayer,
+        colorMode: ColorMode = .rgb
+    ) throws -> PSDDocument {
+        guard canvasSize.width > 0, canvasSize.height > 0 else {
+            throw PSDError.corruptStructure("canvas size must be positive")
+        }
+        guard colorMode == .rgb else {
+            throw PSDError.unsupportedColorMode(colorMode.rawValue)
+        }
+        let file = PSDFile(
+            header: FileHeader.newRGB(width: canvasSize.width, height: canvasSize.height, channels: 3),
+            colorModeData: Data(),
+            imageResources: Data(),
+            layerAndMask: LayerAndMaskInformation(
+                layerInfo: LayerInfo(layerCount: 0, layers: []),
+                globalMaskRaw: Data(),
+                taggedBlocksRaw: Data()
+            ),
+            imageData: ImageDataSection(compression: .raw, data: Data()),
+            sourceData: Data()
+        )
+        let doc = PSDDocument(
+            canvasSize: canvasSize,
+            colorMode: colorMode,
+            root: root,
+            rawFile: file
+        )
+        doc.markContentModified()
+        return doc
     }
 
     /// Builds a PSD from pre-rendered layer RGBA buffers (e.g. pipeline output files).
@@ -203,6 +245,36 @@ public final class PSDDocument: @unchecked Sendable {
         file.layerAndMask.layerInfo = layerInfo
         rawFile = file
         isContentDirty = true
+    }
+
+    // MARK: - Layer tree editing (memory model; nested PSD persistence is separate)
+
+    /// Appends `layer` under `parent` in the in-memory tree and marks the document modified.
+    /// Does not update on-disk layer records for non-root parents.
+    public func appendLayer(_ layer: any LayerProtocol, to parent: GroupLayer) {
+        let childIDsBefore = parent.children.map(\.id)
+        let parentBefore = layer.parent
+        parent.append(layer)
+        if parent.children.map(\.id) != childIDsBefore || layer.parent === parent && parentBefore !== parent {
+            markContentModified()
+        }
+    }
+
+    /// Inserts `layer` under `parent` at `index` (`0` = bottom) and marks the document modified.
+    public func insertLayer(_ layer: any LayerProtocol, to parent: GroupLayer, at index: Int) {
+        let childIDsBefore = parent.children.map(\.id)
+        let parentBefore = layer.parent
+        parent.insert(layer, at: index)
+        if parent.children.map(\.id) != childIDsBefore || layer.parent === parent && parentBefore !== parent {
+            markContentModified()
+        }
+    }
+
+    /// Removes `layer` from its current parent in the in-memory tree and marks the document modified.
+    public func removeLayer(_ layer: any LayerProtocol) {
+        guard let parent = layer.parent else { return }
+        parent.remove(layer)
+        markContentModified()
     }
 
     public func removePixelLayer(_ layer: PixelLayer) throws {

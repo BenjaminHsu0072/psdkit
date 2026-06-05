@@ -17,5 +17,10 @@ let package = Package(
                 .product(name: "PSDKit", package: "PSDKit"),
             ]
         ),
+        .testTarget(
+            name: "PSDViewerTests",
+            dependencies: ["PSDViewer"],
+            path: "Tests/PSDViewerTests"
+        ),
     ]
 )

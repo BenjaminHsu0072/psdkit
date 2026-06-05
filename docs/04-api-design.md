@@ -12,6 +12,7 @@ public final class PSDDocument {
     public var canvasSize: CGSize { get }
     public var colorMode: ColorMode { get }
     public var layers: LayerNode { get }  // 根组
+    public var compatibilityReport: PSDCompatibilityReport { get }  // 本次打开会话；不写入 PSD
 
     public init(size: CGSize, channels: ChannelMode = .rgba) throws
     public static func load(data: Data) throws -> PSDDocument
@@ -35,6 +36,32 @@ public enum PSDError: Error, Sendable {
     case io(underlying: Error)
 }
 ```
+
+### 兼容报告（中期 M2）
+
+`PSDDocument.load` 成功后可通过 `compatibilityReport` 查看本次打开的有损变更（不写入 PSD）：
+
+- **丢弃图层**：text / adjustment / smart object（`SoLd`/`PlLd`）等 tagged block 识别的非像素层
+- **降级**：不支持的 blend mode → Normal；layer mask / effects 被忽略
+- **硬拒绝**（抛出 `PSDError`）：Zip 压缩、16-bit、CMYK、version≠1 等（见 `RejectionTests`）
+
+`PSDCompatibilityReport.hasLossyChanges` 与 `issues` 供宿主 App 展示警告；PSDViewer 映射为 `compatibilityWarningMessage`。
+
+### 支持的 blend mode 子集（中期 M4）
+
+像素层读写支持三种 Photoshop fourCC：
+
+| API | fourCC |
+|-----|--------|
+| `.normal` | `norm` |
+| `.multiply` | `mul ` |
+| `.add` | `lddg` |
+
+组层使用 `.passThrough`（`pass`）。其余 blend mode 导入时降级为 Normal 并记入兼容报告。
+
+### 嵌套组（中期 M3）
+
+`GroupLayer` 可嵌套；读路径通过 `lsct`/`lsdk` section divider 构建树。写路径 `writeMode: .semantic` 可重建组结构（见 `GroupWriteTests` / `PersistenceRoundTripTests`）。
 
 ---
 

@@ -2,37 +2,43 @@ import Foundation
 
 enum DocumentBuilder {
     static func makeDocument(from file: PSDFile) throws -> PSDDocument {
+        var collector = CompatibilityIssueCollector()
         let root = GroupLayer(name: "")
         guard let layerInfo = file.layerAndMask.layerInfo else {
             return PSDDocument(
                 canvasSize: file.header.canvasSize,
                 colorMode: file.header.colorMode,
                 root: root,
-                rawFile: file
+                rawFile: file,
+                compatibilityReport: collector.report
             )
         }
 
         // psd-tools iteration order: index 0 = bottom of stack.
-        for record in layerInfo.layers {
-            guard let pixel = try makePixelLayer(from: record) else { continue }
-            root.append(pixel)
-        }
+        try LayerTreeBuilder.build(
+            records: layerInfo.layers,
+            into: root,
+            collector: &collector,
+            makePixelLayer: makePixelLayer
+        )
 
         return PSDDocument(
             canvasSize: file.header.canvasSize,
             colorMode: file.header.colorMode,
             root: root,
-            rawFile: file
+            rawFile: file,
+            compatibilityReport: collector.report
         )
     }
 
     /// Rebuilds layer channel planes from public `PixelLayer` values (semantic write).
     static func syncRawFile(from document: PSDDocument) throws -> PSDFile {
         var file = document.rawFile
-        let pixels = document.root.children.compactMap { $0 as? PixelLayer }
+        let treePixels = LayerTreeFlattener.collectPixels(in: document.root)
+        let treeHasGroups = LayerTreeFlattener.containsGroupLayers(in: document.root)
 
         if file.layerAndMask.layerInfo == nil {
-            if pixels.isEmpty {
+            if treePixels.isEmpty, !treeHasGroups {
                 file.imageData = try CompositeBuilder.buildImageData(
                     canvasSize: document.canvasSize,
                     layers: [],
@@ -42,35 +48,36 @@ enum DocumentBuilder {
                 )
                 return file
             }
-            let records = try pixels.map { try LayerRecordFactory.makeRecord(from: $0) }
+            let records = try flattenLayerRecords(from: document, templatePixels: [])
             file.layerAndMask.layerInfo = LayerInfo(layerCount: Int16(records.count), layers: records)
-        }
+        } else {
+            guard var layerInfo = file.layerAndMask.layerInfo else {
+                throw PSDError.corruptStructure("no layer info to sync")
+            }
 
-        guard var layerInfo = file.layerAndMask.layerInfo else {
-            throw PSDError.corruptStructure("no layer info to sync")
-        }
+            let templatePixels = layerInfo.layers.filter { $0.width > 0 && $0.height > 0 }
+            if !treeHasGroups, treePixels.count != templatePixels.count {
+                throw PSDError.corruptStructure(
+                    "pixel layer count \(treePixels.count) != record count \(templatePixels.count)"
+                )
+            }
 
-        let templates = layerInfo.layers.filter { $0.width > 0 && $0.height > 0 }
-        guard pixels.count == templates.count else {
-            throw PSDError.corruptStructure(
-                "pixel layer count \(pixels.count) != record count \(templates.count)"
+            let mergeTemplates = canMergeTemplates(
+                treePixels: treePixels,
+                templatePixels: templatePixels
             )
+            let records = try flattenLayerRecords(
+                from: document,
+                templatePixels: mergeTemplates ? templatePixels : []
+            )
+            layerInfo.layers = records
+            layerInfo.layerCount = Int16(records.count)
+            file.layerAndMask.layerInfo = layerInfo
         }
 
-        var updatedLayers: [LayerRecord] = []
-        for (pixel, template) in zip(pixels, templates) {
-            updatedLayers.append(try merge(pixel: pixel, into: template))
-        }
-
-        layerInfo.layers = replacePixelRecords(
-            in: layerInfo.layers,
-            pixelRecords: updatedLayers
-        )
-        file.layerAndMask.layerInfo = layerInfo
-        let pixelLayers = document.root.children.compactMap { $0 as? PixelLayer }
         file.imageData = try CompositeBuilder.buildImageData(
             canvasSize: document.canvasSize,
-            layers: pixelLayers,
+            layers: treePixels,
             compression: file.imageData.compression,
             depth: Int(file.header.depth),
             psdVersion: Int(file.header.version)
@@ -78,21 +85,44 @@ enum DocumentBuilder {
         return file
     }
 
-    private static func replacePixelRecords(
-        in layers: [LayerRecord],
-        pixelRecords: [LayerRecord]
-    ) -> [LayerRecord] {
-        var result: [LayerRecord] = []
-        var pixelIndex = 0
-        for layer in layers {
-            if layer.width > 0, layer.height > 0, pixelIndex < pixelRecords.count {
-                result.append(pixelRecords[pixelIndex])
-                pixelIndex += 1
-            } else {
-                result.append(layer)
+    /// True when flattened pixel order matches on-disk templates (name and bounds per index).
+    private static func canMergeTemplates(
+        treePixels: [PixelLayer],
+        templatePixels: [LayerRecord]
+    ) -> Bool {
+        guard treePixels.count == templatePixels.count else { return false }
+        for (pixel, template) in zip(treePixels, templatePixels) {
+            let templateName = template.name.isEmpty ? "Layer" : template.name
+            guard template.width == pixel.frame.width,
+                  template.height == pixel.frame.height,
+                  templateName == pixel.name
+            else {
+                return false
             }
         }
-        return result
+        return true
+    }
+
+    private static func flattenLayerRecords(
+        from document: PSDDocument,
+        templatePixels: [LayerRecord]
+    ) throws -> [LayerRecord] {
+        var pixelTemplateIndex = 0
+
+        return try LayerTreeFlattener.flatten(
+            group: document.root,
+            makePixelRecord: { pixel in
+                if pixelTemplateIndex < templatePixels.count {
+                    let merged = try merge(pixel: pixel, into: templatePixels[pixelTemplateIndex])
+                    pixelTemplateIndex += 1
+                    return merged
+                }
+                return try LayerRecordFactory.makeRecord(from: pixel)
+            },
+            makeSectionRecord: { group, kind in
+                LayerRecordFactory.makeSectionRecord(from: group, kind: kind)
+            }
+        )
     }
 
     private static func merge(pixel: PixelLayer, into template: LayerRecord) throws -> LayerRecord {
@@ -133,14 +163,15 @@ enum DocumentBuilder {
         return record
     }
 
-    private static func makePixelLayer(from record: LayerRecord) throws -> PixelLayer? {
+    private static func makePixelLayer(
+        from record: LayerRecord,
+        collector: inout CompatibilityIssueCollector
+    ) throws -> PixelLayer? {
         guard record.width > 0, record.height > 0 else { return nil }
-        guard let red = record.channelData[0],
-              let green = record.channelData[1],
-              let blue = record.channelData[2]
-        else {
-            return nil
-        }
+        guard LayerExtra.hasEditableRGBChannels(in: record) else { return nil }
+        let red = record.channelData[ChannelID.red.rawValue]!
+        let green = record.channelData[ChannelID.green.rawValue]!
+        let blue = record.channelData[ChannelID.blue.rawValue]!
         let alpha = record.channelData[ChannelID.transparencyMask.rawValue]
         let rgba = try PlanarRGBA.interleave(
             red: red,
@@ -151,13 +182,25 @@ enum DocumentBuilder {
             height: record.height
         )
         let buffer = try PixelBuffer(width: record.width, height: record.height, rgba: rgba)
+        let layerName = record.name.isEmpty ? "Layer" : record.name
+        if LayerExtra.hasUnsupportedUserMask(in: record) {
+            collector.recordUnsupportedMask(layerName: layerName)
+        }
+        if LayerExtra.hasUnsupportedLayerEffect(in: record.extraData) {
+            collector.recordUnsupportedLayerEffect(layerName: layerName)
+        }
+        var blendMode = record.blendMode
+        if !blendMode.isSupportedForPixelLayer {
+            collector.recordUnsupportedBlendMode(layerName: layerName)
+            blendMode = .normal
+        }
         return PixelLayer(
-            name: record.name.isEmpty ? "Layer" : record.name,
+            name: layerName,
             frame: record.bounds,
             pixels: buffer,
             isVisible: record.flags.visible,
             opacity: record.opacity,
-            blendMode: record.blendMode
+            blendMode: blendMode
         )
     }
 }

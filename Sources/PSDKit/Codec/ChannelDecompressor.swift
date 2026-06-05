@@ -18,31 +18,50 @@ enum ChannelDecompressor {
             return data.prefix(expected)
 
         case .rle:
-            return decodeRLE(data: data, width: width, height: height, depth: depth, version: psdVersion)
+            return try decodeRLE(data: data, width: width, height: height, depth: depth, version: psdVersion)
 
         case .zip, .zipWithPrediction:
             throw PSDError.unsupportedCompression(compression.rawValue)
         }
     }
 
-    private static func decodeRLE(data: Data, width: Int, height: Int, depth: Int, version: Int) -> Data {
+    private static func decodeRLE(data: Data, width: Int, height: Int, depth: Int, version: Int) throws -> Data {
         let rowSize = max(width * depth / 8, 1)
         var reader = BinaryReader(data: data)
         var rowCounts: [UInt16] = []
         if version == 1 {
-            for _ in 0 ..< height {
-                if let count = try? reader.readUInt16() {
-                    rowCounts.append(count)
+            rowCounts.reserveCapacity(height)
+            do {
+                for _ in 0 ..< height {
+                    rowCounts.append(try reader.readUInt16())
                 }
+            } catch PSDError.unexpectedEOF {
+                throw PSDError.corruptStructure("RLE row count table truncated")
+            }
+            guard rowCounts.count == height else {
+                throw PSDError.corruptStructure("RLE row count table incomplete")
             }
         }
-        var output = Data()
-        output.reserveCapacity(rowSize * height)
-        for count in rowCounts {
-            if let rowData = try? reader.readBytes(Int(count)) {
-                let decoded = PackBitsCodec.decode(rowData, size: rowSize)
-                output.append(decoded)
+        let totalSize = rowSize * height
+        var output = Data(count: totalSize)
+        var writeOffset = 0
+        do {
+            for count in rowCounts {
+                let rowData = try reader.readBytes(Int(count))
+                let written = PackBitsCodec.decode(rowData, into: &output, writeOffset: writeOffset, size: rowSize)
+                guard written == rowSize else {
+                    throw PSDError.corruptStructure("RLE row PackBits decode short: \(written) < \(rowSize)")
+                }
+                writeOffset += rowSize
             }
+        } catch let error as PSDError {
+            if case .unexpectedEOF = error {
+                throw PSDError.corruptStructure("RLE row payload truncated")
+            }
+            throw error
+        }
+        guard writeOffset == totalSize else {
+            throw PSDError.corruptStructure("RLE decoded size mismatch: \(writeOffset) < \(totalSize)")
         }
         return output
     }
@@ -70,14 +89,18 @@ enum ChannelDecompressor {
     private static func encodeRLE(raw: Data, width: Int, height: Int, depth: Int, version: Int) -> Data {
         let rowSize = max(width * depth / 8, 1)
         var writer = BinaryWriter()
-        var offset = 0
         var rowPayloads: [Data] = []
-        for _ in 0 ..< height {
-            let row = raw.subdata(in: offset ..< min(offset + rowSize, raw.count))
-            offset += rowSize
-            let encoded = PackBitsCodec.encode(row)
-            rowPayloads.append(encoded)
-            writer.writeUInt16(UInt16(encoded.count))
+        rowPayloads.reserveCapacity(height)
+        raw.withUnsafeBytes { rawBytes in
+            let bytes = rawBytes.bindMemory(to: UInt8.self)
+            for row in 0 ..< height {
+                let start = row * rowSize
+                let end = min(start + rowSize, bytes.count)
+                let rowBuffer = UnsafeBufferPointer(rebasing: bytes[start ..< end])
+                let encoded = PackBitsCodec.encode(bytes: rowBuffer)
+                rowPayloads.append(encoded)
+                writer.writeUInt16(UInt16(encoded.count))
+            }
         }
         for payload in rowPayloads {
             writer.write(payload)

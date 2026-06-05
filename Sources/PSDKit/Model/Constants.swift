@@ -30,12 +30,18 @@ public enum ChannelID: Int16, Sendable {
 
 public enum BlendMode: String, Sendable {
     case normal = "norm"
+    /// Photoshop Multiply (`mul` + trailing space).
+    case multiply = "mul "
+    /// Photoshop Linear Dodge (Add).
+    case add = "lddg"
     case passThrough = "pass"
     case unknown
 
     public init(fourCC: String) {
         switch fourCC {
         case "norm": self = .normal
+        case "mul ": self = .multiply
+        case "lddg": self = .add
         case "pass": self = .passThrough
         default: self = .unknown
         }
@@ -44,8 +50,18 @@ public enum BlendMode: String, Sendable {
     public var fourCC: String {
         switch self {
         case .normal: return "norm"
+        case .multiply: return "mul "
+        case .add: return "lddg"
         case .passThrough: return "pass"
         case .unknown: return "norm"
+        }
+    }
+
+    /// Whether this PSD blend mode is supported on pixel layers in the current subset.
+    var isSupportedForPixelLayer: Bool {
+        switch self {
+        case .normal, .multiply, .add: return true
+        case .passThrough, .unknown: return false
         }
     }
 }

@@ -9,15 +9,26 @@ let package = Package(
     ],
     products: [
         .library(name: "PSDKit", targets: ["PSDKit"]),
+        .executable(name: "PSDKitBenchmark", targets: ["PSDKitBenchmark"]),
     ],
     targets: [
         .target(
             name: "PSDKit",
             path: "Sources/PSDKit"
         ),
+        .target(
+            name: "PSDKitPerformanceFixtures",
+            dependencies: ["PSDKit"],
+            path: "Benchmarks/PSDKitPerformanceFixtures"
+        ),
+        .executableTarget(
+            name: "PSDKitBenchmark",
+            dependencies: ["PSDKit", "PSDKitPerformanceFixtures"],
+            path: "Benchmarks/PSDKitBenchmark"
+        ),
         .testTarget(
             name: "PSDKitTests",
-            dependencies: ["PSDKit"],
+            dependencies: ["PSDKit", "PSDKitPerformanceFixtures"],
             path: "Tests/PSDKitTests",
             resources: [
                 .copy("Fixtures"),

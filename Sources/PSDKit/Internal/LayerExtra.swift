@@ -5,12 +5,125 @@ enum LayerExtra {
     private static let blockSignature = "8BIM"
     private static let unicodeNameKey = "luni"
 
+    /// Tagged block keys for Photoshop layer effects / styles (mid-term unsupported).
+    static let layerEffectTaggedBlockKeys: Set<String> = ["lfx2", "lrFX"]
+
+    /// Section divider / group boundary (M3).
+    static let sectionDividerTaggedBlockKeys: Set<String> = ["lsct", "lsdk"]
+
+    /// Parsed section divider type from `lsct` / `lsdk` payload (psd-tools `SectionDivider` values).
+    enum SectionDividerKind: Equatable, Sendable {
+        case bounding
+        case openFolder
+        case closedFolder
+    }
+
+    private static let sectionDividerOpenFolder: UInt32 = 1
+    private static let sectionDividerClosedFolder: UInt32 = 2
+    private static let sectionDividerBounding: UInt32 = 3
+
+    /// Text layer markers (mid-term dropped).
+    static let textLayerTaggedBlockKeys: Set<String> = ["TySh", "Txt "]
+
+    /// Smart Object markers (mid-term dropped).
+    static let smartObjectTaggedBlockKeys: Set<String> = ["SoLd", "PlLd"]
+
+    /// Common adjustment-layer markers (mid-term dropped).
+    static let adjustmentLayerTaggedBlockKeys: Set<String> = [
+        "brit", "levl", "curv", "hue ", "hue2", "blnc", "nvrt", "thrs", "grdm", "selc", "mixr", "phfl",
+    ]
+
     static func unicodeName(from extraData: Data) -> String? {
         guard let (_, _, _, tagged) = splitExtra(extraData) else { return nil }
         for block in parseTaggedBlocks(tagged) where block.key == unicodeNameKey {
             return decodeUnicodeString(block.payload)
         }
         return nil
+    }
+
+    /// Whether the record carries a user layer mask beyond the default Photoshop stub.
+    static func hasUnsupportedUserMask(in record: LayerRecord) -> Bool {
+        if record.channelInfo.contains(where: {
+            $0.id == ChannelID.realUserLayerMask.rawValue && $0.length > 2
+        }) {
+            return true
+        }
+        guard let (mask, _, _, _) = splitExtra(record.extraData), !mask.isEmpty else {
+            return false
+        }
+        if mask.count > 20 { return true }
+        guard mask.count == 20 else { return false }
+        let flags = mask[17]
+        return flags & 0x08 != 0 || flags & 0x10 != 0
+    }
+
+    static func hasUnsupportedLayerEffect(in extraData: Data) -> Bool {
+        guard let (_, _, _, tagged) = splitExtra(extraData) else { return false }
+        return parseTaggedBlocks(tagged).contains { layerEffectTaggedBlockKeys.contains($0.key) }
+    }
+
+    /// Explicit unsupported layer kinds from tagged blocks (checked before silent skip).
+    static func explicitUnsupportedLayerKindLabel(for record: LayerRecord) -> String? {
+        let keys = Set(taggedBlockKeys(in: record.extraData))
+        if !keys.isDisjoint(with: textLayerTaggedBlockKeys) { return "text" }
+        if !keys.isDisjoint(with: smartObjectTaggedBlockKeys) { return "smart object" }
+        if !keys.isDisjoint(with: adjustmentLayerTaggedBlockKeys) { return "adjustment" }
+        return nil
+    }
+
+    /// Section divider kind when the record carries a recognized `lsct` / `lsdk` payload.
+    static func sectionDividerKind(for record: LayerRecord) -> SectionDividerKind? {
+        guard let payload = sectionDividerPayload(from: record.extraData) else { return nil }
+        guard payload.count >= 4 else { return nil }
+        let bytes = [UInt8](payload.prefix(4))
+        let type = readUInt32BE(bytes, 0)
+        switch type {
+        case sectionDividerOpenFolder: return .openFolder
+        case sectionDividerClosedFolder: return .closedFolder
+        case sectionDividerBounding: return .bounding
+        default: return nil
+        }
+    }
+
+    /// Records that should be skipped without compatibility issues (unknown zero-size stubs).
+    static func shouldSilentlySkipLayerRecord(_ record: LayerRecord) -> Bool {
+        if explicitUnsupportedLayerKindLabel(for: record) != nil { return false }
+        if sectionDividerKind(for: record) != nil { return false }
+        return record.width == 0 && record.height == 0
+    }
+
+    private static func sectionDividerPayload(from extraData: Data) -> Data? {
+        guard let (_, _, _, tagged) = splitExtra(extraData) else { return nil }
+        for block in parseTaggedBlocks(tagged) where sectionDividerTaggedBlockKeys.contains(block.key) {
+            return block.payload
+        }
+        return nil
+    }
+
+    static func hasEditableRGBChannels(in record: LayerRecord) -> Bool {
+        guard record.width > 0, record.height > 0 else { return false }
+        guard let red = record.channelData[ChannelID.red.rawValue],
+              let green = record.channelData[ChannelID.green.rawValue],
+              let blue = record.channelData[ChannelID.blue.rawValue]
+        else {
+            return false
+        }
+        return !red.isEmpty && !green.isEmpty && !blue.isEmpty
+    }
+
+    /// Label for dropped-layer reporting from missing RGB; explicit kinds use `explicitUnsupportedLayerKindLabel`.
+    static func droppedLayerKindLabel(for record: LayerRecord) -> String? {
+        if let explicit = explicitUnsupportedLayerKindLabel(for: record) { return explicit }
+        if shouldSilentlySkipLayerRecord(record) { return nil }
+        if record.width > 0, record.height > 0, !hasEditableRGBChannels(in: record) {
+            return "non-pixel"
+        }
+        return nil
+    }
+
+    static func taggedBlockKeys(in extraData: Data) -> [String] {
+        guard let (_, _, _, tagged) = splitExtra(extraData) else { return [] }
+        return parseTaggedBlocks(tagged).map(\.key)
     }
 
     static func updateName(in extraData: Data, name: String) -> Data {
