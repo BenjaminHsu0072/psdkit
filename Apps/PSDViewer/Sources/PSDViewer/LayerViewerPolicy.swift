@@ -3,7 +3,7 @@ import PSDKit
 
 /// Viewer-side edit/toggle boundaries for the M3 nested-group display phase.
 enum LayerViewerEditPolicy: Equatable, Sendable {
-    case editableRootPixel
+    case editablePixel
     case readOnly(ReadOnlyReason)
 
     enum ReadOnlyReason: Equatable, Sendable {
@@ -12,7 +12,7 @@ enum LayerViewerEditPolicy: Equatable, Sendable {
     }
 
     var isEditable: Bool {
-        if case .editableRootPixel = self { return true }
+        if case .editablePixel = self { return true }
         return false
     }
 }
@@ -27,7 +27,7 @@ enum LayerViewerPolicy {
         case .group:
             return .readOnly(.group)
         case .pixel:
-            return isRootLevel(path: item.path) ? .editableRootPixel : .readOnly(.nestedPixel)
+            return isRootLevel(path: item.path) ? .editablePixel : .editablePixel
         }
     }
 
@@ -35,11 +35,10 @@ enum LayerViewerPolicy {
         if layer is GroupLayer {
             return .readOnly(.group)
         }
-        return isRootLevel(path: path) ? .editableRootPixel : .readOnly(.nestedPixel)
+        return isRootLevel(path: path) ? .editablePixel : .editablePixel
     }
 
-    /// Only root-level pixel layers may toggle visibility in this Viewer phase.
     static func canToggleVisibility(for item: LayerListItem) -> Bool {
-        item.displayKind == .pixel && isRootLevel(path: item.path)
+        item.displayKind == .pixel
     }
 }

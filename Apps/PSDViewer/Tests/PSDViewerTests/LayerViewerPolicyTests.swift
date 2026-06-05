@@ -8,19 +8,19 @@ final class LayerViewerPolicyTests: XCTestCase {
         root.append(try makePixel(name: "FG"))
 
         let item = LayerListFlattener.flatten(root: root)[0]
-        XCTAssertEqual(LayerViewerPolicy.editPolicy(for: item), .editableRootPixel)
+        XCTAssertEqual(LayerViewerPolicy.editPolicy(for: item), .editablePixel)
         XCTAssertTrue(LayerViewerPolicy.canToggleVisibility(for: item))
     }
 
-    func testNestedPixelIsReadOnly() throws {
+    func testNestedPixelIsEditable() throws {
         let root = GroupLayer(name: "")
         let group = GroupLayer(name: "Group A")
         group.append(try makePixel(name: "A-1"))
         root.append(group)
 
         let nested = LayerListFlattener.flatten(root: root).first { $0.name == "A-1" }!
-        XCTAssertEqual(LayerViewerPolicy.editPolicy(for: nested), .readOnly(.nestedPixel))
-        XCTAssertFalse(LayerViewerPolicy.canToggleVisibility(for: nested))
+        XCTAssertEqual(LayerViewerPolicy.editPolicy(for: nested), .editablePixel)
+        XCTAssertTrue(LayerViewerPolicy.canToggleVisibility(for: nested))
     }
 
     func testGroupIsReadOnly() throws {
@@ -34,6 +34,19 @@ final class LayerViewerPolicyTests: XCTestCase {
         XCTAssertFalse(LayerViewerPolicy.canToggleVisibility(for: groupItem))
     }
 
+    func testGroupVisibilityToggleDisabled() {
+        let item = LayerListItem(
+            path: LayerPath(indices: [0]),
+            depth: 0,
+            displayKind: .group,
+            name: "Group",
+            isVisible: true,
+            opacity: 255,
+            childCount: 1
+        )
+        XCTAssertFalse(LayerViewerPolicy.canToggleVisibility(for: item))
+    }
+
     func testEditPolicyFromLayerProtocol() throws {
         let root = GroupLayer(name: "")
         let pixel = try makePixel(name: "P")
@@ -42,7 +55,7 @@ final class LayerViewerPolicyTests: XCTestCase {
         let rootPath = LayerPath(indices: [0])
         XCTAssertEqual(
             LayerViewerPolicy.editPolicy(path: rootPath, layer: pixel),
-            .editableRootPixel
+            .editablePixel
         )
 
         let group = GroupLayer(name: "G")
@@ -52,7 +65,7 @@ final class LayerViewerPolicyTests: XCTestCase {
         let inner = group.children[0]
         XCTAssertEqual(
             LayerViewerPolicy.editPolicy(path: nestedPath, layer: inner),
-            .readOnly(.nestedPixel)
+            .editablePixel
         )
         XCTAssertEqual(
             LayerViewerPolicy.editPolicy(path: LayerPath(indices: [1]), layer: group),
