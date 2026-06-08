@@ -134,11 +134,37 @@ final class CompositeBuilderTests: XCTestCase {
         doc.markContentModified()
         let data = try doc.data()
         let file = try PSDFile.read(data: data)
-        let planeSize = 8 * 8
         // Full transparency → white background
         XCTAssertEqual(file.imageData.data[0], 255)
         XCTAssertEqual(file.imageData.data[1], 255)
         XCTAssertEqual(file.imageData.data[2], 255)
+    }
+
+    func testCompositePreviewIncludesNestedLayers() throws {
+        let doc = try PSDDocument.makeMidtermStandardDocument()
+        let preview = doc.compositePreviewRGBA()
+        XCTAssertEqual(preview.count, doc.canvasSize.width * doc.canvasSize.height * 4)
+        // Group A contains 2-level nested pixels; preview must not collapse to a flat-gray background.
+        XCTAssertNotEqual(preview[0], 240)
+        XCTAssertNotEqual(preview[1], 240)
+        XCTAssertNotEqual(preview[2], 240)
+    }
+
+    func testCompositePreviewRespectsGroupVisibilityAndOpacity() throws {
+        let doc = try PSDDocument.makeMidtermStandardDocument()
+        guard let groupA = doc.root.children.first(where: { $0.name == "Group A" }) as? GroupLayer else {
+            XCTFail("missing Group A")
+            return
+        }
+        let baseline = doc.compositePreviewRGBA()
+        groupA.isVisible = false
+        let hiddenGroup = doc.compositePreviewRGBA()
+        XCTAssertNotEqual(hiddenGroup, baseline)
+
+        groupA.isVisible = true
+        groupA.opacity = 128
+        let halfOpacity = doc.compositePreviewRGBA()
+        XCTAssertNotEqual(halfOpacity, baseline)
     }
 
     private func solidPixelLayer(

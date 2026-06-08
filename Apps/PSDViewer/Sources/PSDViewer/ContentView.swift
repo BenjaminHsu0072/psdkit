@@ -45,6 +45,16 @@ struct ContentView: View {
 
                 Divider()
 
+                Toggle(isOn: Binding(
+                    get: { model.userPrefersMetalPreview },
+                    set: { model.userPrefersMetalPreview = $0 }
+                )) {
+                    Label("Metal Preview", systemImage: "cube.transparent")
+                }
+                .help("Default preview uses Metal. Disable to force CPU fallback.")
+
+                Divider()
+
                 Button {
                     model.importPNGAsLayer()
                 } label: {
@@ -149,7 +159,8 @@ struct ContentView: View {
         .onAppear {
             selectedMoveDestinationID = model.selectedGroupDestinationID
         }
-        .onChange(of: model.selectedLayerID) { _ in
+        .onChange(of: model.selectedLayerID) { newValue in
+            model.editorState.selectLayer(id: newValue)
             selectedMoveDestinationID = model.selectedGroupDestinationID
         }
     }
@@ -286,50 +297,119 @@ struct ContentView: View {
             Text(model.statusSummary)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            if let fallbackReason = model.previewFallbackReason {
+                Text(fallbackReason)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+            if let inputSummary = model.inputDiagnosticsSummary {
+                Text(inputSummary)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            editorToolPicker
             moveControls
 
-            if let image = model.previewImage {
-                let imagePixelSize = CGSize(width: image.size.width, height: image.size.height)
-                ScrollView([.horizontal, .vertical]) {
-                    ZStack(alignment: .topLeading) {
-                        Image(nsImage: image)
-                            .interpolation(.none)
-                            .background(checkerboard)
-                        if model.canEditSelectedLayerInInspector,
-                           let layer = model.selectedPixelLayer,
-                           let path = model.selectedLayerPath
-                        {
-                            SelectedLayerFrameOverlay(
-                                layer: layer,
-                                path: path,
-                                imagePixelSize: imagePixelSize,
-                                displayedSize: imagePixelSize
-                            )
-                        }
-                    }
-                    .overlay {
-                        Rectangle()
-                            .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
-                    }
-                    .padding(24)
-                }
-                .background(Color.gray.opacity(0.18))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if model.usesMetalPreview, let snapshot = model.renderSnapshot {
+                metalPreviewPane(snapshot: snapshot)
+            } else if let image = model.previewImage {
+                cpuFallbackPreviewPane(image: image)
             } else {
-                VStack(spacing: 8) {
-                    Image(systemName: "photo")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                    Text("No Preview")
-                        .font(.headline)
-                    Text("Open an 8-bit RGB PSD file.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                noPreviewPane
             }
         }
         .padding()
+    }
+
+    private func metalPreviewPane(snapshot: EditorRenderSnapshot) -> some View {
+        ZStack(alignment: .topLeading) {
+            EditorMetalPreviewView(
+                snapshot: snapshot,
+                pixels: model.snapshotPixels,
+                viewport: $model.editorViewport,
+                activeTool: model.editorState.activeTool,
+                strokePreview: model.activeStrokePreview,
+                strokePreviewRevision: model.strokePreviewRevision,
+                onRawPointerEvent: { model.handleRawPointerEvent($0) },
+                onDrawError: { model.reportMetalPreviewDrawError($0) }
+            )
+            if model.canEditSelectedLayerInInspector,
+               let layer = model.selectedPixelLayer,
+               let path = model.selectedLayerPath
+            {
+                SelectedLayerFrameOverlay(
+                    layer: layer,
+                    path: path,
+                    viewport: model.editorViewport
+                )
+            }
+        }
+        .background(Color.gray.opacity(0.18))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func cpuFallbackPreviewPane(image: NSImage) -> some View {
+        let imagePixelSize = CGSize(width: image.size.width, height: image.size.height)
+        return ScrollView([.horizontal, .vertical]) {
+            ZStack(alignment: .topLeading) {
+                Image(nsImage: image)
+                    .interpolation(.none)
+                    .background(checkerboard)
+                if model.canEditSelectedLayerInInspector,
+                   let layer = model.selectedPixelLayer,
+                   let path = model.selectedLayerPath
+                {
+                    SelectedLayerFrameOverlay(
+                        layer: layer,
+                        path: path,
+                        imagePixelSize: imagePixelSize,
+                        displayedSize: imagePixelSize
+                    )
+                }
+            }
+            .overlay {
+                Rectangle()
+                    .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
+            }
+            .padding(24)
+        }
+        .background(Color.gray.opacity(0.18))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var noPreviewPane: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "photo")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+            Text("No Preview")
+                .font(.headline)
+            Text("Open an 8-bit RGB PSD file.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var editorToolPicker: some View {
+        HStack(spacing: 8) {
+            Text("Tool")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Picker("Tool", selection: Binding(
+                get: { model.editorState.activeTool },
+                set: { model.setEditorTool($0) }
+            )) {
+                Text("Inspect").tag(EditorTool.inspect)
+                Text("Brush").tag(EditorTool.brush)
+                Text("Eraser").tag(EditorTool.eraser)
+                Text("Hand").tag(EditorTool.hand)
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 320)
+        }
     }
 
     private var moveControls: some View {

@@ -1,0 +1,57 @@
+{
+  "report" : {
+    "environment" : {
+      "buildConfiguration" : "debug",
+      "hardware" : "Mac16,10, 10 logical CPUs, 16.0 GB RAM",
+      "measuredIterations" : 3,
+      "metalAvailable" : true,
+      "osVersion" : "Version 26.3.1 (a) (Build 25D771280a)",
+      "physicalMemoryBytes" : 17179869184,
+      "statistics" : "P50, P95, min, max over measured iterations (linear interpolation); no pass\/fail thresholds",
+      "swiftVersion" : "swift-driver version: 1.127.15 Apple Swift version 6.2.4 (swiftlang-6.2.4.1.4 clang-1700.6.4.2)\nTarget: arm64-apple-macosx26.0",
+      "warmupIterations" : 1
+    },
+    "fixture" : "midterm-standard-document",
+    "generatedAt" : "2026-06-05T23:11:13Z",
+    "metrics" : {
+      "brushCPURasterize" : {
+        "maxSeconds" : 0.00046002864837646484,
+        "minSeconds" : 0.0004520416259765625,
+        "p50Seconds" : 0.00045692920684814453,
+        "p95Seconds" : 0.00045971870422363277
+      },
+      "brushDiagnosticsAfterStamp" : {
+        "lastStampedDabCount" : 3,
+        "workingTextureBytes" : 8192
+      },
+      "cpuComposite" : {
+        "maxSeconds" : 0.000496983528137207,
+        "minSeconds" : 0.0004290342330932617,
+        "p50Seconds" : 0.0004330873489379883,
+        "p95Seconds" : 0.0004905939102172851
+      },
+      "metalComposite" : {
+        "maxSeconds" : 0.0024520158767700195,
+        "minSeconds" : 0.0019279718399047852,
+        "p50Seconds" : 0.0020450353622436523,
+        "p95Seconds" : 0.0024113178253173826
+      },
+      "notes" : [
+
+      ],
+      "snapshotBuild" : {
+        "maxSeconds" : 3.3974647521972656e-05,
+        "minSeconds" : 2.8967857360839844e-05,
+        "p50Seconds" : 3.1948089599609375e-05,
+        "p95Seconds" : 3.377199172973633e-05
+      },
+      "textureCacheAfterMetalComposite" : {
+        "estimatedMemoryBytes" : 3072,
+        "hitCount" : 0,
+        "missCount" : 3,
+        "textureCount" : 3,
+        "uploadCount" : 3
+      }
+    }
+  }
+}

@@ -15,7 +15,8 @@ let package = Package(
             name: "PSDViewer",
             dependencies: [
                 .product(name: "PSDKit", package: "PSDKit"),
-            ]
+            ],
+            exclude: []
         ),
         .testTarget(
             name: "PSDViewerTests",

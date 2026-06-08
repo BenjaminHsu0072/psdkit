@@ -51,6 +51,8 @@ final class DocumentEditTests: XCTestCase {
         doc.markContentModified()
         let temp = FileManager.default.temporaryDirectory.appendingPathComponent("opacity-edit.psd")
         try doc.save(to: temp)
+        XCTAssertFalse(doc.hasUnsavedChanges)
+        XCTAssertFalse(doc.isContentDirty)
         let reloaded = try PSDDocument.load(url: temp)
         XCTAssertEqual((reloaded.root.children.first as? PixelLayer)?.opacity, 200)
         try? FileManager.default.removeItem(at: temp)
@@ -96,6 +98,30 @@ final class DocumentEditTests: XCTestCase {
         let reloaded = try PSDDocument.load(url: temp)
         XCTAssertEqual(reloaded.root.children.first?.name, "RenamedBottom")
         try? FileManager.default.removeItem(at: temp)
+    }
+
+    func testPublicMidtermFactoryProducesExpectedTreeAndDirtyState() throws {
+        let doc = try PSDDocument.makeMidtermStandardDocument()
+        XCTAssertTrue(doc.hasUnsavedChanges)
+        XCTAssertTrue(doc.isContentDirty)
+
+        XCTAssertEqual(doc.root.children.map(\.name), ["BG", "Group A", "Top"])
+        XCTAssertEqual(doc.root.children.count, 3)
+
+        let groupA = try XCTUnwrap(doc.root.children[1] as? GroupLayer)
+        XCTAssertEqual(groupA.children.map(\.name), ["Red", "Group B"])
+        let red = try XCTUnwrap(groupA.children[0] as? PixelLayer)
+        XCTAssertEqual(red.blendMode, .multiply)
+        XCTAssertEqual(red.opacity, 200)
+
+        let groupB = try XCTUnwrap(groupA.children[1] as? GroupLayer)
+        let glow = try XCTUnwrap(groupB.children.first as? PixelLayer)
+        XCTAssertEqual(glow.name, "Glow")
+        XCTAssertEqual(glow.blendMode, .add)
+
+        let top = try XCTUnwrap(doc.root.children[2] as? PixelLayer)
+        XCTAssertEqual(top.name, "Top")
+        XCTAssertFalse(top.isVisible)
     }
 
     func testLayerOffsetBoundsSemanticRoundTrip() throws {

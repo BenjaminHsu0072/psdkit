@@ -52,6 +52,11 @@ final class DocumentModel: ObservableObject {
     @Published private(set) var document: PSDDocument?
     @Published private(set) var fileURL: URL?
     @Published private(set) var previewImage: NSImage?
+    @Published private(set) var renderSnapshot: EditorRenderSnapshot?
+    @Published private(set) var snapshotPixels = EditorSnapshotPixelProvider()
+    @Published var editorViewport = EditorViewport(canvasSize: .zero)
+    @Published private(set) var usesMetalPreview = true
+    @Published private(set) var previewFallbackReason: String?
     @Published private(set) var statusMessage = "Open a PSD file to begin."
     @Published private(set) var errorMessage: String?
     /// Shown when `compatibilityReport` indicates lossy import (session-only; not saved to PSD).
@@ -72,13 +77,35 @@ final class DocumentModel: ObservableObject {
     @Published private(set) var snapshotDiffDescription = "Capture at least two snapshots to inspect differences."
     @Published private(set) var manualValidationState: [String: Bool] = [:]
     @Published private(set) var collapsedGroupIDs: Set<String> = []
+    @Published var editorState = EditorState()
+    @Published private(set) var activeStrokePreview: ActiveStrokePreview?
+    @Published private(set) var strokePreviewRevision: UInt64 = 0
+    @Published private(set) var pendingStrokeCommit: PendingStrokeCommit?
+    @Published private(set) var strokePreviewDiagnostics = StrokePreviewDiagnostics()
+    @Published private(set) var writebackState: EditorWritebackState = .idleClean
+    @Published private(set) var writebackDiagnostics = StrokeWritebackDiagnostics()
 
     private let userDefaults: UserDefaults
+    private var documentSessionID = UUID()
+    private var editorAdapter: PSDDocumentEditorAdapter?
+    private let editorCommandDispatcher = EditorCommandDispatcher()
     private static let manualValidationStateKey = "PSDViewer.ManualValidation.P1ChecklistState"
+    private static let useMetalPreviewKey = "PSDViewer.UseMetalPreview"
 
     init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
+        if userDefaults.object(forKey: Self.useMetalPreviewKey) == nil {
+            userDefaults.register(defaults: [Self.useMetalPreviewKey: true])
+        }
         manualValidationState = Self.loadManualValidationState(from: userDefaults)
+    }
+
+    var userPrefersMetalPreview: Bool {
+        get { userDefaults.bool(forKey: Self.useMetalPreviewKey) }
+        set {
+            userDefaults.set(newValue, forKey: Self.useMetalPreviewKey)
+            refreshPreview()
+        }
     }
 
     static let manualValidationChecklistSections: [ManualValidationChecklistSection] = [
@@ -162,6 +189,32 @@ final class DocumentModel: ObservableObject {
 
     var hasUnsavedChanges: Bool {
         document?.hasUnsavedChanges ?? false
+    }
+
+    var hasActiveStrokeRecording: Bool {
+        editorState.strokeSession.isRecording
+    }
+
+    var isWritebackFlushFailed: Bool {
+        if case .flushFailed = writebackState { return true }
+        return false
+    }
+
+    /// Unflushed editor work that must not be silently discarded on close.
+    var hasUnflushedEditorWork: Bool {
+        pendingStrokeCommit != nil || hasActiveStrokeRecording || isWritebackFlushFailed
+    }
+
+    var requiresCloseConfirmation: Bool {
+        hasUnsavedChanges || hasUnflushedEditorWork
+    }
+
+    var canUndoStrokeEdit: Bool {
+        editorAdapter?.canUndo == true && pendingStrokeCommit == nil && writebackState != .flushing
+    }
+
+    var canRedoStrokeEdit: Bool {
+        editorAdapter?.canRedo == true && pendingStrokeCommit == nil && writebackState != .flushing
     }
 
     var navigationTitle: String {
@@ -269,12 +322,22 @@ final class DocumentModel: ObservableObject {
     private var pendingCloseAction: (() -> Void)?
     private var pendingDeleteGroupPath: LayerPath?
     var shouldRequireLossySaveConfirmation: ((PSDDocument) -> Bool)?
+    /// Overrides `EditorPreviewRouting.cpuFallbackReason` in tests; nil uses production routing.
+    var previewRoutingFallbackReasonProvider: (
+        (EditorRenderSnapshot, Bool) -> EditorPreviewRouting.FallbackReason?
+    )?
+    private var lastMetalDrawErrorMessage: String?
 
     @MainActor
     private struct SessionState {
         let document: PSDDocument?
         let fileURL: URL?
         let previewImage: NSImage?
+        let renderSnapshot: EditorRenderSnapshot?
+        let snapshotPixels: EditorSnapshotPixelProvider
+        let editorViewport: EditorViewport
+        let usesMetalPreview: Bool
+        let previewFallbackReason: String?
         let selectedLayerID: String?
         let compatibilityWarningMessage: String?
         let statusMessage: String
@@ -285,6 +348,11 @@ final class DocumentModel: ObservableObject {
                 document: model.document,
                 fileURL: model.fileURL,
                 previewImage: model.previewImage,
+                renderSnapshot: model.renderSnapshot,
+                snapshotPixels: model.snapshotPixels,
+                editorViewport: model.editorViewport,
+                usesMetalPreview: model.usesMetalPreview,
+                previewFallbackReason: model.previewFallbackReason,
                 selectedLayerID: model.selectedLayerID,
                 compatibilityWarningMessage: model.compatibilityWarningMessage,
                 statusMessage: model.statusMessage,
@@ -296,6 +364,11 @@ final class DocumentModel: ObservableObject {
             model.document = document
             model.fileURL = fileURL
             model.previewImage = previewImage
+            model.renderSnapshot = renderSnapshot
+            model.snapshotPixels = snapshotPixels
+            model.editorViewport = editorViewport
+            model.usesMetalPreview = usesMetalPreview
+            model.previewFallbackReason = previewFallbackReason
             model.selectedLayerID = selectedLayerID
             model.compatibilityWarningMessage = compatibilityWarningMessage
             model.statusMessage = statusMessage
@@ -313,6 +386,7 @@ final class DocumentModel: ObservableObject {
             compatibilityWarningMessage = nil
             statusMessage = "New document \(width)×\(height)"
             clearTransientPanelsForNewSession()
+            syncEditorSelectionFromSidebar()
             bumpDocument()
             refreshPreview()
         } catch let error as PSDError {
@@ -325,20 +399,31 @@ final class DocumentModel: ObservableObject {
     func generateStandardTestDocument() {
         do {
             let doc = try PSDDocument.makeMidtermStandardDocument()
-            document = doc
-            fileURL = nil
-            selectedLayerID = LayerListFlattener.flatten(root: doc.root).first?.id
-            errorMessage = nil
-            compatibilityWarningMessage = nil
-            statusMessage = "Generated midterm standard document (\(doc.canvasSize.width)×\(doc.canvasSize.height))"
-            clearTransientPanelsForNewSession()
-            bumpDocument()
-            refreshPreview()
+            loadDocumentForTests(doc, statusMessage: "Generated midterm standard document (\(doc.canvasSize.width)×\(doc.canvasSize.height))")
         } catch let error as PSDError {
             errorMessage = error.userMessage
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func loadDocumentForTests(
+        _ document: PSDDocument,
+        selectedLayerID: String? = nil,
+        statusMessage: String? = nil
+    ) {
+        self.document = document
+        fileURL = nil
+        self.selectedLayerID = selectedLayerID ?? LayerListFlattener.flatten(root: document.root).first?.id
+        errorMessage = nil
+        compatibilityWarningMessage = Self.compatibilitySummary(from: document.compatibilityReport)
+        if let statusMessage {
+            self.statusMessage = statusMessage
+        }
+        clearTransientPanelsForNewSession()
+        syncEditorSelectionFromSidebar()
+        bumpDocument()
+        refreshPreview()
     }
 
     func presentOpenPanel() {
@@ -363,6 +448,7 @@ final class DocumentModel: ObservableObject {
             compatibilityWarningMessage = Self.compatibilitySummary(from: doc.compatibilityReport)
             statusMessage = "Loaded \(url.lastPathComponent) — \(doc.root.children.count) layer(s)"
             clearTransientPanelsForNewSession()
+            syncEditorSelectionFromSidebar()
             bumpDocument()
             refreshPreview()
         } catch let error as PSDError {
@@ -382,6 +468,8 @@ final class DocumentModel: ObservableObject {
 
     func saveDocument() {
         guard document != nil else { return }
+        guard guardNoActiveStrokeRecording(for: "Save") else { return }
+        guard flushPendingWritebackBeforeSave() else { return }
         if let fileURL {
             requestSave(
                 to: fileURL,
@@ -395,6 +483,8 @@ final class DocumentModel: ObservableObject {
 
     func saveDocumentAs() {
         guard document != nil else { return }
+        guard guardNoActiveStrokeRecording(for: "Save") else { return }
+        guard flushPendingWritebackBeforeSave() else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.data]
         panel.nameFieldStringValue = "Untitled.psd"
@@ -410,6 +500,8 @@ final class DocumentModel: ObservableObject {
 
     func saveDocumentAs(urlOverrideForTests url: URL) {
         guard document != nil else { return }
+        guard guardNoActiveStrokeRecording(for: "Save") else { return }
+        guard flushPendingWritebackBeforeSave() else { return }
         requestSave(
             to: url,
             updateFileURL: true,
@@ -417,20 +509,485 @@ final class DocumentModel: ObservableObject {
         )
     }
 
+    func selectLayerInSidebar(id: String?) {
+        selectedLayerID = id
+        editorState.selectLayer(id: id)
+    }
+
+    func setEditorTool(_ tool: EditorTool) {
+        guard tool != editorState.activeTool else { return }
+
+        if editorState.strokeSession.isRecording {
+            var session = editorState.strokeSession
+            _ = session.cancel(reasonSample: nil)
+            editorState.strokeSession = session
+            editorState.inputDiagnostics.lastEventSummary = "stroke cancelled: tool changed"
+            clearActiveStrokePreview(reason: "stroke cancelled: tool changed")
+        }
+        editorState.setTool(tool)
+    }
+
+    func handleRawPointerEvent(_ event: RawPointerEvent) {
+        let context = StrokeInputContext(
+            viewport: editorViewport,
+            activeTool: editorState.activeTool,
+            brushSettings: editorState.brushSettings,
+            drawContext: strokeDrawContext()
+        )
+        var session = editorState.strokeSession
+        let result = StrokeInputController.handle(
+            event: event,
+            session: &session,
+            context: context
+        )
+        editorState.applyInputResult(result)
+        updateStrokePreviewAfterInput()
+    }
+
+    var inputDiagnosticsSummary: String? {
+        let diagnostics = editorState.inputDiagnostics
+        guard !diagnostics.lastEventSummary.isEmpty else { return nil }
+        var parts = [diagnostics.lastEventSummary]
+        if let point = diagnostics.lastCanvasPoint {
+            parts.append(String(format: "canvas (%.1f, %.1f)", point.x, point.y))
+        }
+        if let pressure = diagnostics.lastPressure {
+            parts.append(String(format: "p=%.2f", pressure))
+        }
+        parts.append("samples=\(diagnostics.sampleCount)")
+        return parts.joined(separator: " · ")
+    }
+
+    private func strokeDrawContext() -> StrokeDrawContext? {
+        guard canEditSelectedLayerInInspector,
+              let layer = selectedPixelLayer,
+              let layerID = selectedLayerID
+        else { return nil }
+        return StrokeDrawContext(
+            layerID: layerID,
+            layerFrame: layer.frame,
+            isEditable: true
+        )
+    }
+
+    private func resetEditorInputState() {
+        editorState.strokeSession.reset()
+        editorState.inputDiagnostics = .empty
+        clearActiveStrokePreview(reason: "editor input reset")
+        pendingStrokeCommit = nil
+        strokePreviewDiagnostics = .empty
+        syncWritebackState()
+    }
+
+    @discardableResult
+    func commitPendingStroke() -> StrokeWritebackResult {
+        guard let pending = pendingStrokeCommit else {
+            writebackDiagnostics.lastResult = "no pending commit"
+            return .noPendingCommit
+        }
+        guard let document else {
+            let message = "no open document"
+            writebackState = .flushFailed(message: message)
+            writebackDiagnostics.lastResult = message
+            return .failure(message)
+        }
+        guard let path = LayerPath(selectionID: pending.layerID),
+              let layer = LayerListFlattener.resolveLayer(in: document.root, path: path) as? PixelLayer
+        else {
+            writebackDiagnostics.lastStaleReason = .layerNotFound
+            writebackDiagnostics.rejectedCommitCount += 1
+            writebackDiagnostics.lastResult = StrokeWritebackStaleReason.layerNotFound.diagnosticMessage
+            writebackState = .flushFailed(message: writebackDiagnostics.lastResult)
+            statusMessage = "Stroke writeback rejected: \(writebackDiagnostics.lastResult)"
+            return .stale(.layerNotFound)
+        }
+
+        let context = StrokeWritebackContext(
+            documentSessionID: documentSessionID,
+            documentRevision: UInt64(documentRevision),
+            layerID: pending.layerID,
+            layerUUID: layer.id,
+            layerPixelRevision: EditorPixelRevisionDigest.digest(rgba: layer.pixels.rgba)
+        )
+        if let stale = StrokeWritebackValidator.validate(pending: pending, against: context) {
+            writebackDiagnostics.lastStaleReason = stale
+            writebackDiagnostics.rejectedCommitCount += 1
+            writebackDiagnostics.lastResult = stale.diagnosticMessage
+            writebackState = .flushFailed(message: stale.diagnosticMessage)
+            statusMessage = "Stroke writeback rejected: \(stale.diagnosticMessage)"
+            return .stale(stale)
+        }
+
+        guard let rect = pending.dirtyRegion.layerLocalRect(
+            pixelWidth: layer.pixels.width,
+            pixelHeight: layer.pixels.height
+        ) else {
+            writebackDiagnostics.lastStaleReason = .emptyDirtyRegion
+            writebackDiagnostics.rejectedCommitCount += 1
+            writebackDiagnostics.lastResult = StrokeWritebackStaleReason.emptyDirtyRegion.diagnosticMessage
+            writebackState = .flushFailed(message: writebackDiagnostics.lastResult)
+            statusMessage = "Stroke writeback rejected: \(writebackDiagnostics.lastResult)"
+            return .stale(.emptyDirtyRegion)
+        }
+
+        guard let adapter = makeOrUpdateEditorAdapter() else {
+            let message = "editor adapter unavailable"
+            writebackState = .flushFailed(message: message)
+            writebackDiagnostics.lastResult = message
+            return .failure(message)
+        }
+
+        writebackState = .flushing
+        let command = CommitStrokeCommand(pending: pending, context: context)
+        let commandResult = editorCommandDispatcher.dispatch(command, through: adapter)
+
+        switch commandResult {
+        case .success:
+            pendingStrokeCommit = nil
+            writebackDiagnostics.commitCount += 1
+            writebackDiagnostics.lastStaleReason = nil
+            writebackDiagnostics.lastReadbackRect = rect
+            writebackDiagnostics.lastReadbackPixelCount = rect.width * rect.height
+            writebackDiagnostics.lastResult = "stroke committed"
+            syncWritebackState()
+            bumpDocument()
+            refreshPreview()
+            bumpStrokePreviewRevision()
+            strokePreviewDiagnostics.pendingCommitLayerID = nil
+            statusMessage = "Stroke committed to \(layer.name)"
+            errorMessage = nil
+            return .success
+        case .failure(let error):
+            let message = writebackFailureMessage(for: error)
+            writebackDiagnostics.rejectedCommitCount += 1
+            writebackDiagnostics.lastResult = message
+            writebackState = .flushFailed(message: message)
+            statusMessage = "Stroke writeback failed: \(message)"
+            return .failure(message)
+        }
+    }
+
+    func undoStrokeEdit() {
+        guard flushPendingWritebackBeforeMutation() else { return }
+        guard let adapter = makeOrUpdateEditorAdapter(),
+              let entry = adapter.popUndoEntry()
+        else {
+            statusMessage = "Nothing to undo."
+            return
+        }
+        let result = editorCommandDispatcher.dispatch(
+            ApplyPixelPatchCommand(patch: entry.inversePatch),
+            through: adapter
+        )
+        guard result == .success else {
+            statusMessage = "Undo failed."
+            return
+        }
+        bumpDocument()
+        refreshPreview()
+        bumpStrokePreviewRevision()
+        syncWritebackState()
+        statusMessage = "Undid \(entry.label)"
+    }
+
+    func redoStrokeEdit() {
+        guard flushPendingWritebackBeforeMutation() else { return }
+        guard let adapter = makeOrUpdateEditorAdapter(),
+              let entry = adapter.popRedoEntry()
+        else {
+            statusMessage = "Nothing to redo."
+            return
+        }
+        let result = editorCommandDispatcher.dispatch(
+            ApplyPixelPatchCommand(patch: entry.forwardPatch),
+            through: adapter
+        )
+        guard result == .success else {
+            statusMessage = "Redo failed."
+            return
+        }
+        bumpDocument()
+        refreshPreview()
+        bumpStrokePreviewRevision()
+        syncWritebackState()
+        statusMessage = "Redid \(entry.label)"
+    }
+
+    private func makeOrUpdateEditorAdapter() -> PSDDocumentEditorAdapter? {
+        guard let document else {
+            editorAdapter = nil
+            return nil
+        }
+        if let existing = editorAdapter {
+            return existing
+        }
+        let adapter = PSDDocumentEditorAdapter(
+            document: document,
+            documentSessionID: documentSessionID,
+            documentRevision: UInt64(documentRevision)
+        )
+        editorAdapter = adapter
+        return adapter
+    }
+
+    @discardableResult
+    private func guardNoActiveStrokeRecording(for operation: String) -> Bool {
+        guard hasActiveStrokeRecording else { return true }
+        statusMessage = "\(operation) blocked: finish or cancel the current stroke first."
+        return false
+    }
+
+    @discardableResult
+    private func flushPendingWritebackBeforeSave() -> Bool {
+        guard pendingStrokeCommit != nil else { return true }
+        switch commitPendingStroke() {
+        case .success, .noPendingCommit:
+            return true
+        case .stale, .failure:
+            statusMessage = "Save blocked until stroke writeback succeeds."
+            return false
+        }
+    }
+
+    @discardableResult
+    private func flushPendingWritebackBeforeMutation() -> Bool {
+        guard pendingStrokeCommit != nil else { return true }
+        switch commitPendingStroke() {
+        case .success, .noPendingCommit:
+            return true
+        case .stale, .failure:
+            statusMessage = "Complete or cancel pending stroke before undo/redo."
+            return false
+        }
+    }
+
+    private func syncWritebackState() {
+        if pendingStrokeCommit != nil {
+            writebackState = .pendingFlush
+            return
+        }
+        if case .flushFailed = writebackState {
+            return
+        }
+        if document?.hasUnsavedChanges == true {
+            writebackState = .idleDirty
+        } else {
+            writebackState = .idleClean
+        }
+    }
+
+    private func writebackFailureMessage(for error: EditorCommandError) -> String {
+        switch error {
+        case .staleWriteback(let reason):
+            writebackDiagnostics.lastStaleReason = reason
+            return reason.diagnosticMessage
+        case .patchApplyFailed(let message):
+            return message
+        case .layerNotFound:
+            writebackDiagnostics.lastStaleReason = .layerNotFound
+            return StrokeWritebackStaleReason.layerNotFound.diagnosticMessage
+        case .invalidParameter(let message):
+            return message
+        case .unsupportedBlendMode:
+            return "unsupported blend mode"
+        case .notImplemented:
+            return "not implemented"
+        }
+    }
+
+    private func updateStrokePreviewAfterInput() {
+        let session = editorState.strokeSession
+        let tool = editorState.activeTool
+
+        switch session.phase {
+        case .active:
+            rebuildActiveStrokePreview(session: session, tool: tool)
+        case .ended:
+            if session.isCommitEligible {
+                finalizePendingStrokeCommit(from: session, tool: tool)
+            } else {
+                clearActiveStrokePreview(reason: "stroke ended without commit eligibility")
+            }
+            editorState.strokeSession.reset()
+        case .cancelled:
+            clearActiveStrokePreview(reason: "stroke cancelled")
+            editorState.strokeSession.reset()
+        case .idle:
+            break
+        }
+        bumpStrokePreviewRevision()
+    }
+
+    private func rebuildActiveStrokePreview(session: StrokeSession, tool: EditorTool) {
+        guard usesMetalPreview else {
+            if let plan = BrushDabPlanner.plan(from: session, tool: tool) {
+                strokePreviewDiagnostics = StrokePreviewDiagnostics(
+                    dabCount: plan.dabCount,
+                    dirtyRegion: plan.dirtyRegion,
+                    activeLayerID: plan.layerID,
+                    lastStrokeResult: "recorded",
+                    rejectionReason: "brush-preview-unavailable-cpu-fallback",
+                    isPreviewActive: false,
+                    pendingCommitLayerID: pendingStrokeCommit?.layerID
+                )
+            } else {
+                strokePreviewDiagnostics.rejectionReason = "brush-preview-unavailable-cpu-fallback"
+            }
+            activeStrokePreview = nil
+            return
+        }
+
+        guard let plan = BrushDabPlanner.plan(from: session, tool: tool) else {
+            clearActiveStrokePreview(reason: "no dab plan")
+            return
+        }
+
+        activeStrokePreview = ActiveStrokePreview(
+            plan: plan,
+            phase: session.phase,
+            brush: session.brushSnapshot
+        )
+        strokePreviewDiagnostics = StrokePreviewDiagnostics(
+            dabCount: plan.dabCount,
+            dirtyRegion: plan.dirtyRegion,
+            activeLayerID: plan.layerID,
+            lastStrokeResult: "preview-active",
+            rejectionReason: nil,
+            isPreviewActive: true,
+            pendingCommitLayerID: pendingStrokeCommit?.layerID
+        )
+    }
+
+    private func finalizePendingStrokeCommit(from session: StrokeSession, tool: EditorTool) {
+        guard let plan = BrushDabPlanner.plan(from: session, tool: tool) else {
+            clearActiveStrokePreview(reason: "ended without dab plan")
+            return
+        }
+
+        if let existingPending = pendingStrokeCommit {
+            switch commitPendingStroke() {
+            case .success, .noPendingCommit:
+                break
+            case .stale(let reason):
+                strokePreviewDiagnostics.rejectionReason = "prior-pending-flush-stale"
+                strokePreviewDiagnostics.pendingCommitLayerID = existingPending.layerID
+                clearActiveStrokePreview(reason: "new stroke rejected; prior pending retained")
+                statusMessage = "New stroke not committed: prior stroke writeback failed (\(reason.diagnosticMessage))"
+                return
+            case .failure(let message):
+                strokePreviewDiagnostics.rejectionReason = "prior-pending-flush-failed"
+                strokePreviewDiagnostics.pendingCommitLayerID = existingPending.layerID
+                clearActiveStrokePreview(reason: "new stroke rejected; prior pending retained")
+                statusMessage = "New stroke not committed: prior stroke writeback failed (\(message))"
+                return
+            }
+        }
+
+        guard let snapshot = renderSnapshot else {
+            clearActiveStrokePreview(reason: "ended without render snapshot")
+            return
+        }
+
+        let layerSnapshot = snapshot.layers.first(where: { $0.id == plan.layerID })
+        pendingStrokeCommit = PendingStrokeCommit(
+            documentSessionID: snapshot.documentSessionID,
+            documentRevision: UInt64(documentRevision),
+            layerID: plan.layerID,
+            layerUUID: layerSnapshot?.layerUUID,
+            layerPixelRevision: layerSnapshot?.pixelRevision ?? 0,
+            mode: plan.mode,
+            brushSnapshot: session.brushSnapshot,
+            rasterizationPlan: plan,
+            dabCount: plan.dabCount,
+            sampleCount: plan.sampleCount,
+            dirtyRegion: plan.dirtyRegion,
+            layerFrame: plan.layerFrame
+        )
+        writebackState = .pendingFlush
+        clearActiveStrokePreview(reason: "stroke ended; pending commit retained")
+        strokePreviewDiagnostics = StrokePreviewDiagnostics(
+            dabCount: plan.dabCount,
+            dirtyRegion: plan.dirtyRegion,
+            activeLayerID: plan.layerID,
+            lastStrokeResult: "ended-pending-commit",
+            rejectionReason: usesMetalPreview ? nil : "brush-preview-unavailable-cpu-fallback",
+            isPreviewActive: false,
+            pendingCommitLayerID: plan.layerID
+        )
+    }
+
+    private func clearActiveStrokePreview(reason: String) {
+        activeStrokePreview = nil
+        if strokePreviewDiagnostics.lastStrokeResult.isEmpty {
+            strokePreviewDiagnostics.lastStrokeResult = reason
+        } else if !reason.isEmpty {
+            strokePreviewDiagnostics.lastStrokeResult = reason
+        }
+        strokePreviewDiagnostics.isPreviewActive = false
+        strokePreviewDiagnostics.dabCount = 0
+        strokePreviewDiagnostics.activeLayerID = nil
+    }
+
+    private func bumpStrokePreviewRevision() {
+        strokePreviewRevision &+= 1
+    }
+
+    private func syncEditorSelectionFromSidebar() {
+        editorState.selectLayer(id: selectedLayerID)
+    }
+
     func refreshPreview() {
         guard let document else {
             previewImage = nil
+            renderSnapshot = nil
+            snapshotPixels = EditorSnapshotPixelProvider()
+            usesMetalPreview = false
+            previewFallbackReason = nil
             return
         }
-        do {
-            previewImage = try PreviewRenderer.makeImage(from: document)
-        } catch let error as PSDError {
+
+        syncEditorViewportCanvasSize(with: document)
+
+        let snapshot = EditorRenderSnapshotBuilder.build(
+            from: document,
+            documentSessionID: documentSessionID,
+            documentRevision: UInt64(documentRevision),
+            selectedLayerID: selectedLayerID,
+            viewport: editorViewport
+        )
+        renderSnapshot = snapshot
+        snapshotPixels = EditorSnapshotPixelProvider.build(from: document, snapshot: snapshot)
+
+        let resolveFallback = previewRoutingFallbackReasonProvider
+            ?? EditorPreviewRouting.cpuFallbackReason
+        if let fallback = resolveFallback(snapshot, userPrefersMetalPreview) {
+            usesMetalPreview = false
+            previewFallbackReason = fallback.statusMessage
+            do {
+                previewImage = try PreviewRenderer.makeImage(from: document)
+            } catch let error as PSDError {
+                previewImage = nil
+                errorMessage = error.userMessage
+            } catch {
+                previewImage = nil
+                errorMessage = error.localizedDescription
+            }
+        } else {
+            usesMetalPreview = true
+            previewFallbackReason = nil
             previewImage = nil
-            errorMessage = error.userMessage
-        } catch {
-            previewImage = nil
-            errorMessage = error.localizedDescription
         }
+    }
+
+    func fitPreviewToView(padding: CGFloat = 24) {
+        editorViewport.fitToView(padding: padding)
+    }
+
+    func reportMetalPreviewDrawError(_ error: Error) {
+        let message = "Metal preview draw failed: \(error.localizedDescription)"
+        guard lastMetalDrawErrorMessage != message else { return }
+        lastMetalDrawErrorMessage = message
+        statusMessage = message
     }
 
     func continueLossySave() {
@@ -451,7 +1008,17 @@ final class DocumentModel: ObservableObject {
     }
 
     func requestCloseDocument(_ action: @escaping () -> Void) {
-        if hasUnsavedChanges {
+        if isWritebackFlushFailed {
+            statusMessage = "Close blocked: stroke writeback failed. Retry writeback or cancel."
+            return
+        }
+        if hasActiveStrokeRecording {
+            pendingCloseAction = action
+            isShowingUnsavedCloseConfirmation = true
+            statusMessage = "Finish or cancel the current stroke before closing."
+            return
+        }
+        if requiresCloseConfirmation {
             pendingCloseAction = action
             isShowingUnsavedCloseConfirmation = true
             return
@@ -471,10 +1038,18 @@ final class DocumentModel: ObservableObject {
             continueCloseWithoutSaving()
             return
         }
-        let wasDirty = hasUnsavedChanges
+        if isWritebackFlushFailed {
+            statusMessage = "Close blocked: stroke writeback failed. Retry writeback or cancel."
+            return
+        }
+        guard guardNoActiveStrokeRecording(for: "Save and close") else { return }
         saveDocument()
-        guard wasDirty else {
-            continueCloseWithoutSaving()
+        guard pendingStrokeCommit == nil else {
+            statusMessage = "Close blocked until stroke writeback succeeds."
+            return
+        }
+        if isWritebackFlushFailed {
+            statusMessage = "Close blocked: stroke writeback failed. Retry writeback or cancel."
             return
         }
         if !hasUnsavedChanges {
@@ -957,7 +1532,26 @@ final class DocumentModel: ObservableObject {
         documentRevision += 1
     }
 
+    private func syncEditorViewportCanvasSize(with document: PSDDocument) {
+        let canvasSize = CGSize(
+            width: document.canvasSize.width,
+            height: document.canvasSize.height
+        )
+        guard editorViewport.canvasSize != canvasSize else { return }
+        editorViewport = EditorViewport(
+            canvasSize: canvasSize,
+            viewSize: editorViewport.viewSize,
+            scale: editorViewport.scale,
+            translation: editorViewport.translation
+        )
+    }
+
     private func clearTransientPanelsForNewSession() {
+        documentSessionID = UUID()
+        editorAdapter = nil
+        writebackDiagnostics = .empty
+        writebackState = .idleClean
+        resetEditorInputState()
         isShowingCompatibilityReport = false
         isShowingLossySaveConfirmation = false
         isShowingUnsavedCloseConfirmation = false
@@ -1011,6 +1605,8 @@ final class DocumentModel: ObservableObject {
             statusMessage = "\(context.successPrefix) \(context.url.lastPathComponent)"
             errorMessage = nil
             bumpDocument()
+            refreshPreview()
+            syncWritebackState()
         } catch let error as PSDError {
             errorMessage = error.userMessage
             statusMessage = "Save failed."

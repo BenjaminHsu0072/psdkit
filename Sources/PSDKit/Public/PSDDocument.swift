@@ -15,6 +15,7 @@ public final class PSDDocument: @unchecked Sendable {
 
     var rawFile: PSDFile
     private(set) var isContentDirty = false
+    public var hasUnsavedChanges: Bool { isContentDirty }
 
     public var layers: GroupLayer { root }
 
@@ -117,6 +118,68 @@ public final class PSDDocument: @unchecked Sendable {
         try create(canvasSize: PSDSize(width: width, height: height), exportedLayers: exportedLayers)
     }
 
+    /// Public standard document for manual validation and midterm round-trip checks.
+    ///
+    /// Tree shape:
+    /// BG -> Group A(Red, Group B(Glow)) -> Top(hidden)
+    public static func makeMidtermStandardDocument(
+        canvasSize: PSDSize = PSDSize(width: 16, height: 16)
+    ) throws -> PSDDocument {
+        let size = canvasSize
+        let fullFrame = PSDRect(left: 0, top: 0, right: size.width, bottom: size.height)
+
+        let bg = try makeSolidLayer(
+            name: "BG",
+            canvasSize: size,
+            red: 240,
+            green: 240,
+            blue: 240,
+            alpha: 255
+        )
+
+        let red = try makeSolidLayer(
+            name: "Red",
+            canvasSize: size,
+            red: 255,
+            green: 0,
+            blue: 0,
+            alpha: 255
+        )
+        red.blendMode = .multiply
+        red.opacity = 200
+
+        let glow = try makePixelLayer(
+            name: "Glow",
+            frame: fullFrame,
+            rgba: makeGlowAlphaGradientRGBA(width: size.width, height: size.height),
+            blendMode: .add
+        )
+
+        let top = try makeSolidLayer(
+            name: "Top",
+            canvasSize: size,
+            red: 0,
+            green: 0,
+            blue: 255,
+            alpha: 255
+        )
+        top.isVisible = false
+
+        let groupB = GroupLayer(name: "Group B")
+        groupB.append(glow)
+
+        let groupA = GroupLayer(name: "Group A")
+        groupA.append(red)
+        groupA.append(groupB)
+
+        let root = GroupLayer(name: "")
+        root.append(bg)
+        root.append(groupA)
+        root.append(top)
+
+        return try create(canvasSize: size, root: root)
+    }
+
     /// Pixel layer from in-memory RGBA (dimensions must match `frame`).
     public static func makePixelLayer(
         name: String,
@@ -203,26 +266,30 @@ public final class PSDDocument: @unchecked Sendable {
     }
 
     public func data(writeMode: PSDWriteMode = .passthrough) throws -> Data {
-        let effective: PSDWriteMode = (isContentDirty || rawFile.sourceData.isEmpty) ? .semantic : writeMode
-        switch effective {
-        case .passthrough:
-            return try rawFile.write(passthrough: true)
-        case .semantic:
-            let synced = try DocumentBuilder.syncRawFile(from: self)
-            return try synced.write(passthrough: false)
-        }
+        try serializedData(writeMode: writeMode).data
     }
 
     public func save(to url: URL, writeMode: PSDWriteMode = .passthrough) throws {
-        try data(writeMode: writeMode).write(to: url, options: .atomic)
+        let payload = try serializedData(writeMode: writeMode)
+        try payload.data.write(to: url, options: .atomic)
+        switch payload.effectiveMode {
+        case .passthrough:
+            rawFile.sourceData = payload.data
+        case .semantic:
+            if let synced = payload.syncedFile {
+                rawFile = synced
+                rawFile.sourceData = payload.data
+            }
+        }
+        isContentDirty = false
     }
 
     // MARK: - Layer editing (phase 4)
 
     /// Call after mutating layer properties in place.
-    /// Merged canvas preview (RGBA8888) using normal blend, bottom-to-top.
+    /// Merged canvas preview (RGBA8888), recursively compositing visible pixel layers in tree order.
     public func compositePreviewRGBA() -> Data {
-        let layers = root.children.compactMap { $0 as? PixelLayer }
+        let layers = Self.collectPreviewPixels(from: root, inheritedVisible: true, inheritedOpacity: 255)
         return CompositeBuilder.compositeRGBA(canvasSize: canvasSize, layers: layers)
     }
 
@@ -300,5 +367,89 @@ public final class PSDDocument: @unchecked Sendable {
             rawFile.layerAndMask.layerInfo = layerInfo
             isContentDirty = true
         }
+    }
+
+    private struct SerializationPayload {
+        let data: Data
+        let effectiveMode: PSDWriteMode
+        let syncedFile: PSDFile?
+    }
+
+    private func serializedData(writeMode: PSDWriteMode) throws -> SerializationPayload {
+        let effective: PSDWriteMode = (isContentDirty || rawFile.sourceData.isEmpty) ? .semantic : writeMode
+        switch effective {
+        case .passthrough:
+            return SerializationPayload(
+                data: try rawFile.write(passthrough: true),
+                effectiveMode: .passthrough,
+                syncedFile: nil
+            )
+        case .semantic:
+            let synced = try DocumentBuilder.syncRawFile(from: self)
+            return SerializationPayload(
+                data: try synced.write(passthrough: false),
+                effectiveMode: .semantic,
+                syncedFile: synced
+            )
+        }
+    }
+
+    private static func collectPreviewPixels(
+        from group: GroupLayer,
+        inheritedVisible: Bool,
+        inheritedOpacity: UInt8
+    ) -> [PixelLayer] {
+        guard inheritedVisible, group.isVisible else { return [] }
+        let groupOpacity = combineOpacity(inheritedOpacity, group.opacity)
+        var result: [PixelLayer] = []
+        for child in group.children {
+            if let pixel = child as? PixelLayer {
+                guard pixel.isVisible else { continue }
+                let effectiveOpacity = combineOpacity(groupOpacity, pixel.opacity)
+                let layerForPreview: PixelLayer
+                if effectiveOpacity == pixel.opacity {
+                    layerForPreview = pixel
+                } else {
+                    layerForPreview = PixelLayer(
+                        name: pixel.name,
+                        frame: pixel.frame,
+                        pixels: pixel.pixels,
+                        isVisible: true,
+                        opacity: effectiveOpacity,
+                        blendMode: pixel.blendMode
+                    )
+                }
+                result.append(layerForPreview)
+            } else if let nested = child as? GroupLayer {
+                result.append(
+                    contentsOf: collectPreviewPixels(
+                        from: nested,
+                        inheritedVisible: true,
+                        inheritedOpacity: groupOpacity
+                    )
+                )
+            }
+        }
+        return result
+    }
+
+    private static func combineOpacity(_ lhs: UInt8, _ rhs: UInt8) -> UInt8 {
+        UInt8((Int(lhs) * Int(rhs) + 127) / 255)
+    }
+
+    private static func makeGlowAlphaGradientRGBA(width: Int, height: Int) -> Data {
+        var rgba = Data(count: width * height * 4)
+        let span = max(1, width - 1)
+        for y in 0 ..< height {
+            for x in 0 ..< width {
+                let offset = (y * width + x) * 4
+                rgba[offset] = 255
+                rgba[offset + 1] = 220
+                rgba[offset + 2] = 80
+                let alpha = UInt8(64 + (191 * x) / span)
+                rgba[offset + 3] = alpha
+            }
+        }
+        return rgba
     }
 }

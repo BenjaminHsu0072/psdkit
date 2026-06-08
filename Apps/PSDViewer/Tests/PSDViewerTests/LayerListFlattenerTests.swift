@@ -52,6 +52,12 @@ final class LayerListFlattenerTests: XCTestCase {
         XCTAssertEqual(LayerPath(selectionID: path.selectionID), path)
     }
 
+    func testResolveInvalidPathReturnsNil() throws {
+        let root = GroupLayer(name: "")
+        root.append(try makePixel(name: "Only"))
+        XCTAssertNil(LayerListFlattener.resolveLayer(in: root, path: LayerPath(indices: [2])))
+    }
+
     private func makePixel(name: String) throws -> PixelLayer {
         try PixelLayer(
             name: name,
